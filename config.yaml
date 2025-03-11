@@ -1,0 +1,131 @@
+# config.yaml
+
+model:
+  g_conv_dim: 64 # Generator第一层卷积通道数
+  d_conv_dim: 64 # Discriminator第一层卷积通道数
+  g_repeat_num: 6 # Generator残差块数量
+  d_repeat_num: 6 # Discriminator步长卷积层数
+  lambda_cls: 1.0 # 分类损失权重
+  lambda_rec: 10.0 # 重建损失权重
+  lambda_gp: 10.0 # 梯度惩罚权重
+
+training:
+  batch_size: 2 # 批次大小
+  # num_iters: 200000 # 总训练迭代次数
+  # num_iters_decay: 100000 # 学习率衰减迭代次数
+  num_iters: 10000 # [测试用] 总训练迭代次数
+  num_iters_decay: 5000 # [测试用] 学习率衰减迭代次数
+  g_lr: 0.0001 # Generator学习率
+  d_lr: 0.0001 # Discriminator学习率
+  n_critic: 5 # Discriminator更新次数/Generator更新次数
+  beta1: 0.5 # Adam beta1参数
+  beta2: 0.999 # Adam beta2参数
+  resume_iters: null # 恢复训练的迭代步数
+  serial_batches: false # 是否按顺序取batch
+  num_workers: 4 # 数据加载线程数
+  test_interval: 1000  # 测试集评估迭代间隔
+
+testing:
+  test_iters: 200000 # test model from this step
+
+data:
+  trainCT_root: # 训练CT数据路径
+    - ./data/volume_data/HuaXi/train
+    - ./data/volume_data/ISLES_2018/train
+  trainMR_root: # 训练MR数据路径
+    - ./data/volume_data/HuaXi/train
+    - ./data/volume_data/ISLES_2018/train
+  testCT_root: # 测试CT路径
+    - ./data/volume_data/HuaXi/test
+    - ./data/volume_data/ISLES_2018/test
+  testMR_root: # 测试MR路径
+    - ./data/volume_data/HuaXi/test
+    - ./data/volume_data/ISLES_2018/test
+  file_pattern: '.*patient[A-Za-z]*\s*\d+_(ct|mr)\.npy'
+  ct_file_pattern: '.*patient[A-Za-z]*\s*\d+_ct\.npy' # NEW
+  mr_file_pattern: '.*patient[A-Za-z]*\s*\d+_mr\.npy' # NEW
+  # file_pattern: 用于从文件名中提取病例ID的正则表达式模式，确保正确匹配和加载数据文件
+  preload: true  # 将dataset直接加入内存
+  max_depth: 29 # 数据最大切片数（深度）
+
+directories:
+  log_dir: output/metric_loss # 日志保存路径
+  model_save_dir: output/models # 模型保存路径
+  sample_dir: output/samples # 生成样本保存路径
+  result_dir: output/results # 生成结果保存路径
+
+misc:
+  mode: train # 运行模式 train 或 test
+  use_tensorboard: true # 是否使用TensorBoard
+  log_step: 10 # 日志记录间隔
+  # sample_step: 1000 # 采样间隔
+  sample_step: 10 # [测试用] 采样间隔
+  model_save_step: 10000 # 模型保存间隔
+  lr_update_step: 1000 # 学习率更新间隔
+
+bugfree:
+  bugfree_img_path: ./utils/bugfree_img/ # bugfree图片路径 (相对路径，相对于工作目录)
+  img_name: buddha # bugfree图片名称 # buddha.buggfree
+  start_color: FF7EC7 # bugfree图片起始颜色
+  end_color: FFED46 # bugfree图片结束颜色
+
+
+# # Dataloader
+# # used in utils.CTandMR_dataset
+# # Warning: This is a pile of spaghetti code (aka a "shit mountain"). Proceed with caution!
+# train: true
+# trainCT_root:
+#   - ./data/volume_data/HuaXi/train
+#   - ./data/volume_data/ISLES_2018/train
+# trainMR_root:
+#   - ./data/volume_data/HuaXi/train
+#   - ./data/volume_data/ISLES_2018/train
+# testCT_root:
+#   - ./data/volume_data/HuaXi/test
+#   - ./data/volume_data/ISLES_2018/test
+# testMR_root:
+#   - ./data/volume_data/HuaXi/test
+#   - ./data/volume_data/ISLES_2018/test
+# preload: true
+# file_pattern: '.*patient[A-Za-z]*\s*\d+_(ct|mr)\.npy' # regular expression for file name
+
+# # Model configuration.
+# g_conv_dim: 64 # number of conv filters in the first layer of Generator
+# d_conv_dim: 64 # number of conv filters in the first layer of Discriminator
+# g_repeat_num: 6 # number of residual blocks in Generator
+# d_repeat_num: 6 # number of strided conv layers in Discriminator
+# lambda_cls: 1 # weight for domain classification loss
+# lambda_rec: 10 # weight for reconstruction loss
+# lambda_gp: 10 # weight for gradient penalty
+
+# # Training configuration.
+# batch_size: 1 # mini-batch size
+# num_iters: 200000 # number of total iterations for training D
+# num_iters_decay: 100000 # number of iterations for decaying lr
+# g_lr: 0.0001 # learning rate for G
+# d_lr: 0.0001 # learning rate for D
+# n_critic: 5 # number of D updates per each G update
+# beta1: 0.5 # beta1 for Adam optimizer
+# beta2: 0.999 # beta2 for Adam optimizer
+# resume_iters: null # resume training from this step ('null' means 'None' in Python)
+# serial_batches: false # if true, takes images in order to make batches, otherwise takes them randomly
+
+# # Test configuration.
+# test_iters: 200000 # test model from this step
+
+# # Miscellaneous.
+# num_workers: 4
+# mode: train
+# use_tensorboard: true
+
+# log_dir: ./output/logs
+# model_save_dir: ./output/models
+# sample_dir: ./output/samples
+# result_dir: ./output/results
+
+# # Step size.
+# log_step: 10
+# sample_step: 1000
+# model_save_step: 10000
+# lr_update_step: 1000
+

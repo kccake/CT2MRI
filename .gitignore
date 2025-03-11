@@ -1,2 +1,6 @@
-data
+data/
+test/
+output/
 __pycache__/
+
+data

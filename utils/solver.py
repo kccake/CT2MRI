@@ -10,13 +10,17 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from collections import defaultdict
 from tqdm import tqdm
-from skimage.measure import compare_ssim as ssim2d
-from skimage.measure import compare_psnr as psnr2d
+# from skimage.measure import compare_ssim as ssim2d # skimage <= 0.16
+# from skimage.measure import compare_psnr as psnr2d # skimage <= 0.16
+from skimage.metrics import structural_similarity as ssim2d
+from skimage.metrics import peak_signal_noise_ratio as psnr2d
 from PIL import Image
 from pathlib import Path
-from re_model import StarGenerator3D, StarDiscriminator3D
-from torchmetrics import StructuralSimilarityIndexMeasure
-
+from models import StarGenerator3D, StarDiscriminator3D # ours
+# from torchmetrics import StructuralSimilarityIndexMeasure
+# from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
+from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 
 class Solver:
 
@@ -69,6 +73,9 @@ class Solver:
         self.sample_step = config['misc']['sample_step']
         self.model_save_step = config['misc']['model_save_step']
         self.lr_update_step = config['misc']['lr_update_step']
+        
+        self.ssim_calculator = SSIM(data_range=2.0).to(self.device)
+        self.psnr_calculator = PSNR(data_range=2.0).to(self.device)
 
         # Build the model and tensor_board
         self.build_model()
@@ -178,13 +185,14 @@ class Solver:
                     self.g_optimizer.step()
 
                 # 更新 tqdm 进度条 **********************************
-                progress_bar.update(1)
+                
                 progress_bar.set_postfix(
                     D_loss=d_loss.item(),
                     G_loss=g_loss.item() if (batch_idx + 1) % self.n_critic == 0 else None
                 )
+            progress_bar.update(1)
                 # ****************************************************
-
+                
             # Logging
             if epoch % self.log_step == 0:
                 # 在训练集和测试集上同时评估
@@ -196,7 +204,7 @@ class Solver:
             if epoch % self.sample_step == 0:
                 # 改为利用epoch来表示总step数字, 当epoch达到步数后, 就会自动利用该epoch最后的那组real_CT,real_MR,fake_MR作为采样结果
                 fake_MR = self.G(real_CT)
-                self._save_3d_volumes(real_CT, fake_MR, real_MR,epoch)
+                self._save_3d_volumes(real_CT, fake_MR, real_MR, epoch)
             
             # Save model
             if epoch % self.model_save_step == 0:
@@ -316,47 +324,25 @@ class Solver:
                 if isinstance(v, (int, float)):
                     self.writer.add_scalar(k, v, epoch)
 
-    def _calculate_psnr(self, y, G, data_range=2.0):
-        """
-        计算 PSNR (3D 医学图像专用版本)
-        参数：
-            y: 真实图像 [B, C, D, H, W]，范围 [-1,1]
-            G: 生成图像 [B, C, D, H, W]
-            data_range: 数据范围（论文中为 max(y,G)）
-        返回：
-            PSNR 值 (dB)
-        """
-        # 计算动态范围
-        max_val = torch.max(torch.max(y), torch.max(G))  # 论文中公式的 max(y(x), G(x))
+    def _calculate_psnr(self, real_images, fake_images):
+        # 将 [B, C, D, H, W] 转换为 [B*C*D, 1, H, W]
+        real_images = real_images.view(-1, 1, *real_images.shape[-2:])  # [B*C*D, 1, H, W]
+        fake_images = fake_images.view(-1, 1, *fake_images.shape[-2:])  # [B*C*D, 1, H, W]
+
+        # 批量计算 PSNR
+        psnr_value = self.psnr_calculator(real_images, fake_images)
+        return psnr_value.item()
         
-        # 计算均方误差
-        mse = torch.mean((y - G) ** 2, dim=[1,2,3,4])  # 按样本计算
-        
-        # 避免除以零
-        mse = torch.clamp(mse, min=1e-8)
-        
-        # 按论文公式计算
-        psnr = 10 * torch.log10((max_val ** 2) / mse)
-        return torch.mean(psnr).item()
     
     def _calculate_ssim(self, real_images, fake_images):
+        # 将 [B, C, D, H, W] 转换为 [B*C*D, 1, H, W]
+        real_images = real_images.view(-1, 1, *real_images.shape[-2:])  # [B*C*D, 1, H, W]
+        fake_images = fake_images.view(-1, 1, *fake_images.shape[-2:])  # [B*C*D, 1, H, W]
 
-        ssim = StructuralSimilarityIndexMeasure(
-            data_range=2.0,            # 数据范围 [-1, 1] -> 2.0
-        ).to(self.device)   
+        # 批量计算 SSIM
+        ssim_value = self.ssim_calculator(real_images, fake_images)
+        return ssim_value.item()
 
-        """
-        计算 3D 医学图像的 SSIM
-        :param real_images: 真实图像 [B, C, D, H, W]
-        :param fake_images: 生成图像 [B, C, D, H, W]
-        :return: SSIM 值 (标量)
-        """
-        # 验证输入维度
-        if real_images.dim() != 5 or fake_images.dim() != 5:
-            raise ValueError("Input must be 5D tensor: [B, C, D, H, W]")
-        
-        # 计算 SSIM（注意参数顺序：preds在前，target在后）
-        return ssim(fake_images, real_images).item()
     
     def _save_training_log(self, log_data: dict, epoch: int) -> bool:
         """
@@ -385,7 +371,7 @@ class Solver:
                 default=str  # 处理无法序列化的对象
             )
 
-        print(f"日志成功保存至：{file_path}")
+        print(f"\033[1;34m[Info]\033[0m 日志成功保存至：{file_path}")
         return True
     
 
@@ -454,7 +440,10 @@ class Solver:
         """保存单个切片为PNG图像(优化版)"""
         # 添加对比度拉伸以适应显示
         vmin, vmax = np.percentile(slice_array, (1, 99))
-        slice_norm = np.clip((slice_array - vmin) / (vmax - vmin) * 255, 0, 255).astype(np.uint8)
+        if vmax == vmin:
+            slice_norm = np.zeros_like(slice_array) # 全黑
+        else:
+            slice_norm = np.clip((slice_array - vmin) / (vmax - vmin) * 255, 0, 255).astype(np.uint8)
 
         # 使用PIL保存并优化压缩
         Image.fromarray(slice_norm).save(
