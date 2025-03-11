@@ -55,6 +55,7 @@ class CTMR3DDataset(Dataset):
         self.pairs = self._build_pairs() # 只是文件路径的配对, 而不是实体的配对
         # 预加载数据到内存
         if self.preload:
+            print(f"\033[1;34m[Info]\033[0m Preloading data...")
             self._preload_data()
         
     def _build_pairs(self) -> List[tuple]:
@@ -144,6 +145,7 @@ class CTMR3DDataset(Dataset):
         
         # 应用增强
         if self.transfrom:
+            # print(f"\033[1;34m[Info]\033[0m Applying \033[34mtransform\033[0m for data augmentation")
             ct_tensor = self.transfrom(ct_tensor)
             mr_tensor = self.transfrom(mr_tensor)
         
@@ -215,6 +217,26 @@ class MedicalVolumePreprocessor:
         )
         return padded_volume
 
+class NoneMedicalVolumePreprocessor(MedicalVolumePreprocessor):
+    """3D医学影像预处理工具类(不做数据增强，只变形)"""
+    def __init__(self, target_contrast=50.0):
+        self.target_contrast = target_contrast
+        
+    def __call__(self, volume):
+        if isinstance(volume, torch.Tensor):
+            volume = volume.numpy()
+            
+        # 对比度统一处理（不做处理）
+        # volume = self._adjust_contrast(volume)
+        
+        # 数据归一化到[-1,1]
+        volume = self._normalize(volume)
+        
+        # 维度填充到4的倍数
+        volume = self._pad_to_multiple(volume, base=4)
+        
+        return torch.from_numpy(volume).float()
+        
 
 def create_data_loaders(config, mode='train', transform=None):
     """创建数据加载器"""

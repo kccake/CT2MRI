@@ -20,6 +20,20 @@ The remaster is created by the [XingYueChenFu](https://github.com/XingYueChenFu)
 
     运行`python main.py`
 
+4. 可能需要安装的包
+
+- torch torchvision
+
+- pyyaml
+
+- scikit-image
+
+- tqdm
+
+- pillow
+
+- opencv-python
+
 ## Update log
 
 ### 2025-3-10
