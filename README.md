@@ -40,4 +40,9 @@ The remaster is created by the [XingYueChenFu](https://github.com/XingYueChenFu)
 
   修复方法：将体积数据的depth用0填充为配置的max_depth，上下填充
 
+修复tqdm进度条的bug
+
+精简部分代码，修复一些现在记不清的东西
+
+修复读取数据，将ct与mr混为一谈的**严重**bug
 
