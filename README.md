@@ -60,3 +60,9 @@ The remaster is created by the [XingYueChenFu](https://github.com/XingYueChenFu)
 
 修复读取数据，将ct与mr混为一谈的**严重**bug
 
+### 2025-3-12
+
+加入NoneMedicalVolumePreprocessor类，用于不做对比度增强的数据预处理
+
+    继承自MedicalVolumePreprocessor
+
