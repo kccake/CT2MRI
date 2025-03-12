@@ -33,7 +33,7 @@ if __name__ == '__main__':
     utils.make_dirs([directory for directory in config['directories'].values()])
     
     transform = transforms.Compose([
-        MedicalVolumePreprocessor(target_contrast=50.0),
+        MedicalVolumePreprocessor(target_contrast=50.0), # 3D医学影像预处理工具类(做图像增强)
     ])
 
     # 创建数据加载器

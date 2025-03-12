@@ -66,3 +66,6 @@ The remaster is created by the [XingYueChenFu](https://github.com/XingYueChenFu)
 
     继承自MedicalVolumePreprocessor
 
+### 2025-3-13
+
+修复bugfree的一些bug，删掉冗余成分

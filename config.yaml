@@ -10,10 +10,10 @@ model:
   lambda_gp: 10.0 # 梯度惩罚权重
 
 training:
-  batch_size: 2 # 批次大小
+  batch_size: 1 # 批次大小 # 2 需要约16GB显存
   # num_iters: 200000 # 总训练迭代次数
   # num_iters_decay: 100000 # 学习率衰减迭代次数
-  num_iters: 10000 # [测试用] 总训练迭代次数
+  num_iters: 10001 # [测试用] 总训练迭代次数
   num_iters_decay: 5000 # [测试用] 学习率衰减迭代次数
   g_lr: 0.0001 # Generator学习率
   d_lr: 0.0001 # Discriminator学习率
@@ -59,13 +59,13 @@ misc:
   use_tensorboard: true # 是否使用TensorBoard
   log_step: 10 # 日志记录间隔
   # sample_step: 1000 # 采样间隔
-  sample_step: 10 # [测试用] 采样间隔
+  sample_step: 100 # [测试用] 采样间隔
   model_save_step: 10000 # 模型保存间隔
   lr_update_step: 1000 # 学习率更新间隔
 
 bugfree:
   bugfree_img_path: ./utils/bugfree_img/ # bugfree图片路径 (相对路径，相对于工作目录)
-  img_name: buddha # bugfree图片名称 # buddha.buggfree
+  img_name: buddha.bugfree # bugfree图片名称 # buddha.buggfree
   start_color: FF7EC7 # bugfree图片起始颜色
   end_color: FFED46 # bugfree图片结束颜色
 
