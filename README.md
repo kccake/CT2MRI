@@ -69,3 +69,11 @@ The remaster is created by the [XingYueChenFu](https://github.com/XingYueChenFu)
 ### 2025-3-13
 
 修复bugfree的一些bug，删掉冗余成分
+
+### 2025-3-14
+
+拆分 dataset加载 与 data processor
+
+重塑data processor，将功能全部拆分，使其更加灵活（同时，如`main.py`等文件同步更改）
+
+经验证可以正常运行
