@@ -1,5 +1,4 @@
 import colorama
-import os
 colorama.init()
 
 class BugFree:

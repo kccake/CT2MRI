@@ -10,15 +10,11 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from collections import defaultdict
 from tqdm import tqdm
-# from skimage.measure import compare_ssim as ssim2d # skimage <= 0.16
-# from skimage.measure import compare_psnr as psnr2d # skimage <= 0.16
 from skimage.metrics import structural_similarity as ssim2d
 from skimage.metrics import peak_signal_noise_ratio as psnr2d
 from PIL import Image
 from pathlib import Path
 from models import StarGenerator3D, StarDiscriminator3D # ours
-# from torchmetrics import StructuralSimilarityIndexMeasure
-# from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 

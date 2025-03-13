@@ -1,5 +1,3 @@
-import os
-import yaml
 import torch
 import numpy as np
 from torch.backends import cudnn
@@ -7,9 +5,6 @@ from torchvision import transforms
 
 import utils
 from utils import *
-# from utils import CTMR3DDataset, MedicalVolumePreprocessor, Solver, load_config, create_data_loaders
-import models
-
 
 if __name__ == '__main__':
     # 加载配置
@@ -32,9 +27,6 @@ if __name__ == '__main__':
     print(f"\033[1;34m[Info]\033[0m Enable cudnn benchmark")
     utils.make_dirs([directory for directory in config['directories'].values()])
     
-    # transform = transforms.Compose([
-    #     MedicalVolumePreprocessor(target_contrast=50.0), # 3D医学影像预处理工具类(做图像增强)
-    # ])
     transform = transforms.Compose([
         ContrastAdjuster(target_contrast=50.0),
         Normalizer(),
