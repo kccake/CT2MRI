@@ -153,3 +153,16 @@ class CTMR3DDataset(Dataset):
         
     def __len__(self):
         return len(self.pairs)
+    
+def create_data_loaders(config, mode='train', transform=None):
+    """创建数据加载器"""
+    dataset = CTMR3DDataset(config['data'], mode=mode, transform=transform)
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=config['training']['batch_size'],
+        shuffle=(mode == 'train' and not config['training']['serial_batches']),
+        num_workers=config['training']['num_workers'],
+        pin_memory=True,
+        persistent_workers=True
+    )
+    return loader

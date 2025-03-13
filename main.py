@@ -32,8 +32,13 @@ if __name__ == '__main__':
     print(f"\033[1;34m[Info]\033[0m Enable cudnn benchmark")
     utils.make_dirs([directory for directory in config['directories'].values()])
     
+    # transform = transforms.Compose([
+    #     MedicalVolumePreprocessor(target_contrast=50.0), # 3D医学影像预处理工具类(做图像增强)
+    # ])
     transform = transforms.Compose([
-        MedicalVolumePreprocessor(target_contrast=50.0), # 3D医学影像预处理工具类(做图像增强)
+        ContrastAdjuster(target_contrast=50.0),
+        Normalizer(),
+        PaddingToMultiple(base=4)
     ])
 
     # 创建数据加载器
