@@ -64,7 +64,7 @@ class MedicalVolumePreprocessor:
     def _adjust_contrast(self, volume):
         # 转换为0-255范围
         volume_255 = cv2.convertScaleAbs(
-            volume, 
+            volume,
             alpha=self.target_contrast / (volume.mean() + 1e-8),
             beta=0
         )

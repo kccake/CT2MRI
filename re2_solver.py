@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import json
+# from piqa.utils.functional import gaussian_kernel
+# from piqa.ssim import ssim
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -10,8 +12,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from collections import defaultdict
 from tqdm import tqdm
-from skimage.measure import compare_ssim as ssim2d
-from skimage.measure import compare_psnr as psnr2d
+from skimage.metrics import structural_similarity as ssim2d
+from skimage.metrics import peak_signal_noise_ratio as psnr2d
 from PIL import Image
 from pathlib import Path
 from re_model import StarGenerator3D, StarDiscriminator3D
@@ -121,7 +123,11 @@ class Solver:
         d_lr = self.d_lr  # 0.0001
 
         # 创建 tqdm 进度条(不成熟的进度条)*************
-        progress_bar = tqdm(total=self.num_iters, desc="Training Progress", unit="iter")
+        epoch_bar = tqdm(
+            total=self.num_iters,
+            desc="Training Progress",
+            unit="epoch"
+        )
         # *********************************************
 
         for epoch in range(start_epoch, self.num_iters):
@@ -131,7 +137,7 @@ class Solver:
                 # 数据预处理
                 real_CT = batch['CT'].to(self.device).float()
                 real_MR = batch['MR'].to(self.device).float()
-                
+                print("trainD开始")
                 # Train Discriminator
                 # Compute loss with real images.
                 self.D.train()
@@ -156,7 +162,9 @@ class Solver:
                 d_loss = d_loss_real + d_loss_fake + self.lambda_gp * loss_gp
                 d_loss.backward()
                 self.d_optimizer.step()
+                print("TrianD结束")
 
+                print("TrainG开始")
                 # Train Generator
                 if (batch_idx + 1) % self.n_critic == 0:
                     self.G.train()
@@ -176,14 +184,10 @@ class Solver:
 
                     g_loss.backward()
                     self.g_optimizer.step()
-
-                # 更新 tqdm 进度条 **********************************
-                progress_bar.update(1)
-                progress_bar.set_postfix(
-                    D_loss=d_loss.item(),
-                    G_loss=g_loss.item() if (batch_idx + 1) % self.n_critic == 0 else None
-                )
-                # ****************************************************
+                    print("TrainG结束")
+            # 更新 tqdm 进度条 **********************************
+            epoch_bar.update(1)
+            # ****************************************************
 
             # Logging
             if epoch % self.log_step == 0:
@@ -210,7 +214,7 @@ class Solver:
                 print ('Decayed learning rates, g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
         # 关闭 tqdm 进度条 ***************
-        progress_bar.close()
+        epoch_bar.close()
         # ********************************
         print(f"Training finished. Total time: {time.time() - self.start_time:.2f}s")
 
@@ -279,7 +283,9 @@ class Solver:
                 losses['G/total'].append(g_loss.item())
 
                 # 计算指标
-                metrics['psnr'].append(self._calculate_psnr(real_MR, fake_MR))
+                real_MR = real_MR.float().cpu().numpy()
+                fake_MR = fake_MR.float().cpu().numpy()
+                metrics['psnr'].append(self._calculate_psnr(real_MR, fake_MR)) # 返回一个batch的psnr的均值
                 metrics['ssim'].append(self._calculate_ssim(real_MR, fake_MR))
 
         return {
@@ -316,47 +322,64 @@ class Solver:
                 if isinstance(v, (int, float)):
                     self.writer.add_scalar(k, v, epoch)
 
-    def _calculate_psnr(self, y, G, data_range=2.0):
+    def _calculate_psnr(self, real_images, fake_images):
         """
-        计算 PSNR (3D 医学图像专用版本)
+        计算 PSNR (2D 加起来取均值) 传入的是np.array
         参数：
-            y: 真实图像 [B, C, D, H, W]，范围 [-1,1]
-            G: 生成图像 [B, C, D, H, W]
+            real_images: 真实图像 [B, C, D, H, W]，范围 [-1,1]
+            fake_images: 生成图像 [B, C, D, H, W]
             data_range: 数据范围（论文中为 max(y,G)）
         返回：
             PSNR 值 (dB)
         """
-        # 计算动态范围
-        max_val = torch.max(torch.max(y), torch.max(G))  # 论文中公式的 max(y(x), G(x))
-        
-        # 计算均方误差
-        mse = torch.mean((y - G) ** 2, dim=[1,2,3,4])  # 按样本计算
-        
-        # 避免除以零
-        mse = torch.clamp(mse, min=1e-8)
+        # 将 [B, C, D, H, W] 转换为 [B*C*D, 1, H, W]
+
+        real_images = real_images.squeeze(1)
+        fake_images = fake_images.squeeze(1)
+
+        real_images = real_images.reshape(-1, real_images.shape[-2], real_images.shape[-1])
+        fake_images = fake_images.reshape(-1, fake_images.shape[-2], fake_images.shape[-1])
+
+        # 更改像素值为[0,255]
+        real_images = (real_images + 1) * (255/2)
+        fake_images = (fake_images + 1) * (255/2)
+
+        PSNR = np.array([])
+        for real_image, fake_image in zip(real_images, fake_images):
+            PSNR.append( psnr2d(real_image, fake_image, data_range=255))
         
         # 按论文公式计算
-        psnr = 10 * torch.log10((max_val ** 2) / mse)
-        return torch.mean(psnr).item()
+        PSNR_mean = PSNR.mean()
+        return PSNR_mean
     
     def _calculate_ssim(self, real_images, fake_images):
-
-        ssim = StructuralSimilarityIndexMeasure(
-            data_range=2.0,            # 数据范围 [-1, 1] -> 2.0
-        ).to(self.device)   
-
         """
-        计算 3D 医学图像的 SSIM
-        :param real_images: 真实图像 [B, C, D, H, W]
-        :param fake_images: 生成图像 [B, C, D, H, W]
-        :return: SSIM 值 (标量)
+        计算 SSIM (2D 加起来取均值) 传入的是np.array
+        参数：
+            real_images: 真实图像 [B, C, D, H, W]，范围 [-1,1]
+            fake_images: 生成图像 [B, C, D, H, W]
+        返回：
+            SSIM 值
         """
-        # 验证输入维度
-        if real_images.dim() != 5 or fake_images.dim() != 5:
-            raise ValueError("Input must be 5D tensor: [B, C, D, H, W]")
+        # 将 [B, C, D, H, W] 转换为 [B*C*D, 1, H, W]
+
+        real_images = real_images.squeeze(1)
+        fake_images = fake_images.squeeze(1)
+
+        real_images = real_images.reshape(-1, real_images.shape[-2], real_images.shape[-1])
+        fake_images = fake_images.reshape(-1, fake_images.shape[-2], fake_images.shape[-1])
+
+        # 更改像素值为[0,255]
+        real_images = (real_images + 1) * (255/2)
+        fake_images = (fake_images + 1) * (255/2)
+
+        SSIM = np.array([])
+        for real_image, fake_image in zip(real_images, fake_images):
+            SSIM.append( ssim2d(real_image, fake_image, data_range=255))
         
-        # 计算 SSIM（注意参数顺序：preds在前，target在后）
-        return ssim(fake_images, real_images).item()
+        # 按论文公式计算
+        SSIM_mean = SSIM.mean()
+        return SSIM_mean
     
     def _save_training_log(self, log_data: dict, epoch: int) -> bool:
         """
