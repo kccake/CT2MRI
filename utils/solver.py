@@ -135,50 +135,53 @@ class Solver:
                 real_CT = batch['CT'].to(self.device).float()
                 real_MR = batch['MR'].to(self.device).float()
                 
-                # Train Discriminator
+                # ===== Train Discriminator ===== 
                 # Compute loss with real images.
-                self.D.train()
-                self.d_optimizer.zero_grad()
-
-                # 生成假样本
-                with torch.no_grad():
-                    fake_MR = self.G(real_CT)
-                
-                 # 真实样本损失
-                pred_real = self.D(real_MR)
-                d_loss_real = -torch.mean(pred_real)
-
-                # 假样本损失
-                pred_fake = self.D(fake_MR.detach())
-                d_loss_fake = torch.mean(pred_fake)
-
-                # 梯度惩罚
-                loss_gp = self._compute_gradient_penalty(real_MR, fake_MR)
-
-                # 总损失
-                d_loss = d_loss_real + d_loss_fake + self.lambda_gp * loss_gp
-                d_loss.backward()
-                self.d_optimizer.step()
-
-                # Train Generator
-                if (batch_idx + 1) % self.n_critic == 0:
-                    self.G.train()
-                    self.g_optimizer.zero_grad()
+                if (batch_idx) % self.n_critic == 0:
+                    self.D.train()
+                    self.d_optimizer.zero_grad()
 
                     # 生成假样本
-                    fake_MR = self.G(real_CT)
+                    self.G.eval()
+                    with torch.no_grad():
+                        fake_MR = self.G(real_CT)
+                    self.G.train()
                     
-                    pred_fake = self.D(fake_MR)
-                    g_loss_adv = -torch.mean(pred_fake)
+                    # 真实样本损失
+                    pred_real = self.D(real_MR)
+                    d_loss_real = -torch.mean(pred_real)
 
-                    # L1重建损失
-                    g_loss_L1 = self.criterionL1(fake_MR, real_MR) * self.lambda_rec
+                    # 假样本损失
+                    pred_fake = self.D(fake_MR.detach())
+                    d_loss_fake = torch.mean(pred_fake)
+
+                    # 梯度惩罚
+                    loss_gp = self._compute_gradient_penalty(real_MR, fake_MR)
 
                     # 总损失
-                    g_loss = g_loss_adv + g_loss_L1
+                    d_loss = d_loss_real + d_loss_fake + self.lambda_gp * loss_gp
+                    d_loss.backward()
+                    self.d_optimizer.step()
 
-                    g_loss.backward()
-                    self.g_optimizer.step()
+                # ===== Train Generator ===== 
+                
+                self.G.train()
+                self.g_optimizer.zero_grad()
+
+                # 生成假样本
+                fake_MR = self.G(real_CT)
+                
+                pred_fake = self.D(fake_MR)
+                g_loss_adv = -torch.mean(pred_fake)
+
+                # L1重建损失
+                g_loss_L1 = self.criterionL1(fake_MR, real_MR) * self.lambda_rec
+
+                # 总损失
+                g_loss = g_loss_adv + g_loss_L1
+
+                g_loss.backward()
+                self.g_optimizer.step()
 
                 # 更新 tqdm 进度条 **********************************
                 

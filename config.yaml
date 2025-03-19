@@ -10,9 +10,10 @@ model:
   lambda_gp: 10.0 # 梯度惩罚权重
 
 training:
-  batch_size: 1 # 批次大小 # 2 需要约16GB显存
+  batch_size: 1 # 批次大小 (batch_size: 2 占用16GB显存)
   # num_iters: 200000 # 总训练迭代次数
   # num_iters_decay: 100000 # 学习率衰减迭代次数
+  num_iters: 10001 # [测试用] 总训练迭代次数
   num_iters: 10001 # [测试用] 总训练迭代次数
   num_iters_decay: 5000 # [测试用] 学习率衰减迭代次数
   g_lr: 0.0001 # Generator学习率
@@ -68,64 +69,3 @@ bugfree:
   img_name: buddha.bugfree # bugfree图片名称 # buddha.buggfree
   start_color: FF7EC7 # bugfree图片起始颜色
   end_color: FFED46 # bugfree图片结束颜色
-
-
-# # Dataloader
-# # used in utils.CTandMR_dataset
-# # Warning: This is a pile of spaghetti code (aka a "shit mountain"). Proceed with caution!
-# train: true
-# trainCT_root:
-#   - ./data/volume_data/HuaXi/train
-#   - ./data/volume_data/ISLES_2018/train
-# trainMR_root:
-#   - ./data/volume_data/HuaXi/train
-#   - ./data/volume_data/ISLES_2018/train
-# testCT_root:
-#   - ./data/volume_data/HuaXi/test
-#   - ./data/volume_data/ISLES_2018/test
-# testMR_root:
-#   - ./data/volume_data/HuaXi/test
-#   - ./data/volume_data/ISLES_2018/test
-# preload: true
-# file_pattern: '.*patient[A-Za-z]*\s*\d+_(ct|mr)\.npy' # regular expression for file name
-
-# # Model configuration.
-# g_conv_dim: 64 # number of conv filters in the first layer of Generator
-# d_conv_dim: 64 # number of conv filters in the first layer of Discriminator
-# g_repeat_num: 6 # number of residual blocks in Generator
-# d_repeat_num: 6 # number of strided conv layers in Discriminator
-# lambda_cls: 1 # weight for domain classification loss
-# lambda_rec: 10 # weight for reconstruction loss
-# lambda_gp: 10 # weight for gradient penalty
-
-# # Training configuration.
-# batch_size: 1 # mini-batch size
-# num_iters: 200000 # number of total iterations for training D
-# num_iters_decay: 100000 # number of iterations for decaying lr
-# g_lr: 0.0001 # learning rate for G
-# d_lr: 0.0001 # learning rate for D
-# n_critic: 5 # number of D updates per each G update
-# beta1: 0.5 # beta1 for Adam optimizer
-# beta2: 0.999 # beta2 for Adam optimizer
-# resume_iters: null # resume training from this step ('null' means 'None' in Python)
-# serial_batches: false # if true, takes images in order to make batches, otherwise takes them randomly
-
-# # Test configuration.
-# test_iters: 200000 # test model from this step
-
-# # Miscellaneous.
-# num_workers: 4
-# mode: train
-# use_tensorboard: true
-
-# log_dir: ./output/logs
-# model_save_dir: ./output/models
-# sample_dir: ./output/samples
-# result_dir: ./output/results
-
-# # Step size.
-# log_step: 10
-# sample_step: 1000
-# model_save_step: 10000
-# lr_update_step: 1000
-
