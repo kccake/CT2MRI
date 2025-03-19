@@ -112,6 +112,8 @@ class AutoEncoderSolver:
             # Logging
             if epoch % self.log_step == 0:
                 train_metrics = self._evaluate(self.train_loader)
+                test_metrics = self._evaluate(self.test_loader)
+                self._log_metrics(epoch, train_metrics, test_metrics)
                 print(f"Epoch {epoch+1}/{self.num_iters}: {train_metrics}")
                 pass
             # Save samples
