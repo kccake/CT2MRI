@@ -175,10 +175,10 @@ class Solver:
                 g_loss_adv = -torch.mean(pred_fake)
 
                 # L1重建损失
-                g_loss_L1 = self.criterionL1(fake_MR, real_MR) * self.lambda_rec
+                g_loss_L1 = self.criterionL1(fake_MR, real_MR)
 
                 # 总损失
-                g_loss = g_loss_adv + g_loss_L1
+                g_loss = g_loss_adv + g_loss_L1 * self.lambda_rec
 
                 g_loss.backward()
                 self.g_optimizer.step()
@@ -272,8 +272,8 @@ class Solver:
                 d_loss = d_loss_fake + d_loss_real
 
                 g_loss_adv = -torch.mean(pred_fake)
-                g_loss_l1 = self.criterionL1(fake_MR, real_MR) * self.lambda_rec
-                g_loss = g_loss_adv + g_loss_l1
+                g_loss_l1 = self.criterionL1(fake_MR, real_MR)
+                g_loss = g_loss_adv + g_loss_l1 * self.lambda_rec
                 # 记录loss
                 
                 losses['D/loss_real'].append(d_loss_real.item())
