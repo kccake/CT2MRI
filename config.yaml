@@ -16,6 +16,7 @@ training:
   num_iters: 10001 # [测试用] 总训练迭代次数
   num_iters: 10001 # [测试用] 总训练迭代次数
   num_iters_decay: 5000 # [测试用] 学习率衰减迭代次数
+  autoencoder_lr: 0.0001 # Autoencoder学习率
   g_lr: 0.0001 # Generator学习率
   d_lr: 0.0001 # Discriminator学习率
   n_critic: 5 # Discriminator更新次数/Generator更新次数
@@ -50,10 +51,16 @@ data:
   max_depth: 29 # 数据最大切片数（深度）
 
 directories:
-  log_dir: output/metric_loss # 日志保存路径
-  model_save_dir: output/models # 模型保存路径
-  sample_dir: output/samples # 生成样本保存路径
-  result_dir: output/results # 生成结果保存路径
+  # starGAN
+  log_dir: output/starGAN/metric_loss # 日志保存路径
+  model_save_dir: output/starGAN/models # 模型保存路径
+  sample_dir: output/starGAN/samples # 生成样本保存路径
+  result_dir: output/starGAN/results # 生成结果保存路径
+  # AutoEncoder
+  autoencoder_log_dir: output/autoEncoder/metric_loss # Autoencoder模型保存路径
+  autoencoder_model_save_dir: output/autoEncoder/models # Autoencoder模型保存路径
+  autoencoder_sample_dir: output/autoEncoder/samples # Autoencoder生成样本保存路径
+  autoencoder_result_dir: output/autoEncoder/results # Autoencoder生成结果保存路径
 
 misc:
   mode: train # 运行模式 train 或 test

@@ -37,7 +37,10 @@ if __name__ == '__main__':
     train_loader = create_data_loaders(config, mode='train', transform=transform)
     test_loader = create_data_loaders(config, mode='test', transform=transform)
 
-    solver = Solver(train_loader, test_loader, config)
+    # solver = Solver(train_loader, test_loader, config)
+    
+    solver = AutoEncoderSolver(train_loader, test_loader, config)
+    
     # 运行训练或测试
     if config['misc']['mode'] == 'train':
         solver.train()
