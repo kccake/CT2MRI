@@ -116,7 +116,9 @@ class AutoEncoderSolver:
                 pass
             # Save samples
             if epoch % self.sample_step == 0:
-                pass
+                self.model.eval()
+                fake_MR = self.model(real_CT)
+                self._save_3d_volumes(real_CT, fake_MR, real_MR, epoch)
             # Save model
             if epoch % self.model_save_step == 0:
                 pass
@@ -223,36 +225,6 @@ class AutoEncoderSolver:
         # 批量计算 SSIM
         ssim_value = self.ssim_calculator(real_images, fake_images)
         return ssim_value.item()
-    
-    def _save_training_log(self, log_data: dict, epoch: int) -> bool:
-        """
-        安全保存训练日志到指定目录
-        参数：
-            log_data: 需要保存的日志字典数据
-            epoch: 当前epoch数 (从0开始计数)
-        返回：
-            bool: 是否保存成功
-        """
-        # 1. 路径类型安全转换
-        log_dir = Path(self.log_dir) if not isinstance(self.log_dir, Path) else self.log_dir
-
-        # 2. 创建目录（含父目录）
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        # 3. 构造文件路径
-        file_path = log_dir / f"epoch_{epoch+1:04d}.json"
-
-        # 4. 安全写入流程
-        with open(file_path, 'w', encoding='utf-8') as f:  # 显式指定编码
-            json.dump(
-                log_data, f,
-                indent=2,
-                ensure_ascii=False,  # 允许保存中文等非ASCII字符
-                default=str  # 处理无法序列化的对象
-            )
-
-        print(f"\033[1;34m[Info]\033[0m 日志成功保存至：{file_path}")
-        return True
     
     def _save_3d_volumes(self, real_CT, fake_MR, real_MR, epoch):
         """保存完整3D体积的所有切片(支持任意batch_size)"""
@@ -402,11 +374,11 @@ class AutoEncoderSolver:
             param_group['lr'] = d_lr
 
     def test(self):
-        self.G.eval()
+        self.model.eval()
         with torch.no_grad():
             for batch in self.test_loader:
                 real_CT = batch['CT'].to(self.device)
-                fake_MR = self.G(real_CT)
+                fake_MR = self.model(real_CT)
 
                 # Save or evaluate results
                 # Add your testing logic here
@@ -595,6 +567,7 @@ class Solver:
             # Save samples
             if epoch % self.sample_step == 0:
                 # 改为利用epoch来表示总step数字, 当epoch达到步数后, 就会自动利用该epoch最后的那组real_CT,real_MR,fake_MR作为采样结果
+                self.G.eval()
                 fake_MR = self.G(real_CT)
                 self._save_3d_volumes(real_CT, fake_MR, real_MR, epoch)
             
