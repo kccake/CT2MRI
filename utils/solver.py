@@ -47,6 +47,7 @@ class AutoEncoderSolver:
         self.resume_iters = config['training']['resume_iters']
         
         self.criterionL1 = torch.nn.L1Loss()
+        self.criterionL2 = torch.nn.MSELoss()
 
         # Test configurations 告诉test该用哪个模型
         self.test_iters = config['testing']['test_iters']
@@ -101,7 +102,7 @@ class AutoEncoderSolver:
                 self.optimizer.zero_grad()
                 
                 fake_MR = self.model(real_CT)
-                loss = self.criterionL1(fake_MR, real_MR)
+                loss = self.criterionL2(fake_MR, real_MR)
                 loss.backward()
                 self.optimizer.step()
                 
