@@ -1,1 +1,2 @@
-大创项目, 利用3D CT生成MRI
+# 使用 StyleGAN2 做 CT 转 MRI
+

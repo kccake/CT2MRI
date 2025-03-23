@@ -1,0 +1,66 @@
+# config.yaml
+name: 'stylegan2' # 模型名称
+# device: 'cuda' # 使用的设备
+
+model: # 暂时无用，留在这里
+  lambda_cls: 1.0 # 分类损失权重
+  lambda_rec: 10.0 # 重建损失权重
+  lambda_gp: 10.0 # 梯度惩罚权重
+
+training:
+  batch_size: 1 # 批次大小
+  strat_epoch: 0  # 开始训练的epoch
+  n_epochs: 300 # 总训练迭代次数
+  decay_epoch: 20 # 学习率衰减迭代次数
+
+  g_lr: 0.0001 # Generator学习率
+  d_lr: 0.0001 # Discriminator学习率
+  d_update_stride: 5 # Discriminator更新步长 （每 d_update_stride 代更新1次）
+  g_update_stride: 1 # Generator更新步长
+
+  beta1: 0.5 # Adam beta1参数
+  beta2: 0.999 # Adam beta2参数
+
+  num_workers: 4 # 数据加载线程数
+
+
+dataset:
+  # 训练CT数据路径
+  trainCT_root: [
+    '/root/autodl-tmp/data/train3D/CT_norm_255',
+  ]
+  # 训练MR数据路径
+  trainMR_root: [
+    '/root/autodl-tmp/data/train3D/MRI_norm_255',
+  ]
+  # 测试CT路径
+  testCT_root: [
+    '/root/autodl-tmp/data/test3D/CT_norm_255',
+  ]
+  # 测试MR路径 
+  testMR_root: [
+    '/root/autodl-tmp/data/test3D/MRI_norm_255',
+  ]
+  preload: true  # 将dataset直接加入内存
+
+log_root: '/root/autodl-tmp/output' # 日志保存路径
+log_dir_names: [
+  loss_dir_name: 'metric_loss', # log_dir + '/' +  name + '/' + loss_dir
+  model_dir_name: 'models',
+  sample_dir_name: 'samples',
+  result_dir_name: 'results',
+]
+  
+
+
+misc:
+  mode: train # 运行模式 train 或 test
+  log_stride: 10 # 日志记录间隔
+  sample_stride: 10 # 采样间隔
+  model_save_stride: 50 # 模型保存间隔
+
+bugfree:
+  bugfree_img_path: ./utils/bugfree_img/ # bugfree图片路径 (相对路径，相对于工作目录)
+  img_name: buddha.bugfree # bugfree图片名称 # buddha.buggfree
+  start_color: FF7EC7 # bugfree图片起始颜色
+  end_color: FFED46 # bugfree图片结束颜色
