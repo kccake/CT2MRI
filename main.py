@@ -23,9 +23,9 @@ def main():
     for dirname in config['log_dir_names']:
         os.makedirs(f"{log_root}/{dirname}", exist_ok=True)
 
-    
+    # traindataset = ImagesDataset2D(config['dataset'], train=True)
 
-
+    # print(traindataset[0]['CT'].shape) # 
 
 if __name__ == '__main__':
     main()
