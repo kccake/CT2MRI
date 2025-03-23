@@ -31,10 +31,10 @@ class ImagesDataset3D(Dataset):
             self.MR_images = []
             for path in self.CT_paths:
                 CT_image = torch.from_numpy(np.load(path).astype(np.float32))
-                self.CT_images.append(CT_image)
+                self.CT_images.append(CT_image.unsqueeze(0)) # torch.Size([1, 32, 256, 256])
             for path in self.MR_paths:
                 MR_image = torch.from_numpy(np.load(path).astype(np.float32))
-                self.MR_images.append(MR_image)
+                self.MR_images.append(MR_image.unsqueeze(0)) # torch.Size([1, 32, 256, 256])
             print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and {len(self.MR_images)} MR images are\033[34m preloaded\033[0m.')
         # not Preload images
         else:
@@ -48,7 +48,7 @@ class ImagesDataset3D(Dataset):
             CT_image = torch.from_numpy(np.load(self.CT_paths[index]).astype(np.float32))
             MR_image = torch.from_numpy(np.load(self.MR_paths[index]).astype(np.float32))
         
-        return {'CT': CT_image, 'MR': MR_image} # 每个都是 torch.Size([32, 256, 256])
+        return {'CT': CT_image.unsqueeze(0), 'MR': MR_image.unsqueeze(0)} # 每个都是 torch.Size([32, 256, 256])
     
     def __len__(self):
         return max(len(self.CT_paths), len(self.MR_paths))

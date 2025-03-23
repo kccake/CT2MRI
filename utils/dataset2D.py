@@ -35,26 +35,27 @@ class ImagesDataset2D(Dataset):
             for path in self.CT_paths:
                 CT_image = torch.from_numpy(np.load(path).astype(np.float32))
                 self.CT_images.append(CT_image)
-
-            # print(f'\033[1;33m[DEBUG]\033[0m {self.CT_images[0].shape}') # torch.Size([32, 256, 256])
-            # concat 到一起，变成 len*32, 256, 256
-            self.CT_images = torch.cat(self.CT_images, dim=0)
+            self.CT_images = torch.cat(self.CT_images, dim=0) # [N, 256, 256]
+            # 转化为 [N, 1, 256, 256]
+            self.CT_images = self.CT_images.unsqueeze(1)
+            
             for path in self.MR_paths:
                 MR_image = torch.from_numpy(np.load(path).astype(np.float32))
                 self.MR_images.append(MR_image)
             self.MR_images = torch.cat(self.MR_images, dim=0)
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and {len(self.MR_images)} MR images are\033[34m preloaded\033[0m.')
+            self.MR_images = self.MR_images.unsqueeze(1)
+            
+            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
         # not Preload images
         else:
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and {len(self.MR_paths)} MR images are\033[34m founded.')
+            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and \033[32m{len(self.MR_paths)}\033[0m MR images are\033[34m founded.')
     
     def __getitem__(self, index):
         if self.preload:
             CT_image = self.CT_images[index]
             MR_image = self.MR_images[index]
         else:
-            CT_image = torch.from_numpy(np.load(self.CT_paths[index]).astype(np.float32))
-            MR_image = torch.from_numpy(np.load(self.MR_paths[index]).astype(np.float32))
+            raise ValueError('ImagesDataset2D 暂时不支持 非preload 模式。')
         
         return {'CT': CT_image, 'MR': MR_image} # 每个都是 torch.Size([256, 256])
     
