@@ -44,12 +44,11 @@ dataset:
   preload: true  # 将dataset直接加入内存
 
 log_root: '/root/autodl-tmp/output' # 日志保存路径
-log_dir_names: [
-  loss_dir_name: 'metric_loss', # log_dir + '/' +  name + '/' + loss_dir
-  model_dir_name: 'models',
-  sample_dir_name: 'samples',
-  result_dir_name: 'results',
-]
+log_dir_names: 
+  loss_dir_name: 'metric_loss' # log_root + '/' +  name + '/' + loss_dir_name
+  model_dir_name: 'models'
+  sample_dir_name: 'samples'
+  result_dir_name: 'results'
   
 
 
@@ -60,7 +59,7 @@ misc:
   model_save_stride: 50 # 模型保存间隔
 
 bugfree:
-  bugfree_img_path: ./utils/bugfree_img/ # bugfree图片路径 (相对路径，相对于工作目录)
+  bugfree_img_path: './utils/bugfree_img/' # bugfree图片路径 (相对路径，相对于工作目录)
   img_name: buddha.bugfree # bugfree图片名称 # buddha.buggfree
   start_color: FF7EC7 # bugfree图片起始颜色
   end_color: FFED46 # bugfree图片结束颜色
