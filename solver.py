@@ -129,25 +129,10 @@ class Solver(object):
                 train_metrics = self._evaluate(self.dataloader)
                 test_metrics = self._evaluate(self.val_data, is_train=False)
                 self._log_metrics(epoch, train_metrics, test_metrics)
-                # if test_metrics['metrics']['ssim'] > best_SSIM:
-                #     best_SSIM = test_metrics['metrics']['ssim']
-                #     self._save_checkpoint(epoch)
             
             if epoch % self.misc['sample_interval'] == 0:
                 self.G.eval()
                 fake_MR = self.G(real_CT)
-                # 查看10个切片 保存到 './test/slice/'
-                # for i in range(10):
-                #     plt.figure()
-                #     plt.subplot(1, 3, 1)
-                #     plt.imshow(real_CT[0, 0, i, :, :].detach().cpu().numpy())
-                #     plt.subplot(1, 3, 2)
-                #     plt.imshow(fake_MR[0, 0, i, :, :].detach().cpu().numpy())
-                #     plt.subplot(1, 3, 3)
-                #     plt.imshow(real_MR[0, 0, i, :, :].detach().cpu().numpy())
-                #     # plt.show()
-                #     plt.savefig(f'./test/slice/{i}.png')
-                
                 self._save_sample(real_CT, fake_MR, real_MR, epoch)
                 
         pass
