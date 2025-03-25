@@ -1,2 +1,1 @@
-# from .stylegan2 import *
-from .edgan import *
+from .unet import *

@@ -1,6 +1,7 @@
 import os
 from utils import *
 from models import *
+from solver import Solver
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -27,15 +28,16 @@ def main():
     
     # make log directory
     log_root = f"{config['log_root']}/{config['name']}"
-    for dirname in config['log_dir_names']:
-        os.makedirs(f"{log_root}/{dirname}", exist_ok=True)
+    for dirtype in config['log_dir_names'].keys():
+        os.makedirs(f"{log_root}/{config['log_dir_names'][dirtype]}", exist_ok=True)
 
-    # traindataset = ImagesDataset2D(config['dataset'], train=True)
-    # testdataset = ImagesDataset2D(config['dataset'], train=False)
-    trainloader = DataLoader(ImagesDataset2D(config['dataset'], train=True))
-    testloader = DataLoader(ImagesDataset2D(config['dataset'], train=False))
+    trainloader = DataLoader(ImagesDataset3D(config['dataset'], train=True))
+    testloader = DataLoader(ImagesDataset3D(config['dataset'], train=False))
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    solver = Solver(config, trainloader, testloader)
+    solver.train()
     
     
         
