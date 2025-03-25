@@ -1,7 +1,8 @@
 import os
 from utils import *
 from models import *
-from solver import Solver
+# from solver import Solver
+from solver_diff import DiffusionSolver
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -36,8 +37,15 @@ def main():
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    solver = Solver(config, trainloader, testloader)
+    solver = DiffusionSolver(config, trainloader, testloader)
     solver.train()
+    
+    # 采样测试
+    sample_ct = next(iter(testloader))['CT'].to(device)
+    generated_mr = solver.sample(sample_ct, steps=100)
+    # 将generated_mr保存到 ./test/ 文件夹下
+    torch.save(sample_ct, './test/sample_ct.pt')
+    torch.save(generated_mr, './test/generated_mr.pt')
     
     
         
