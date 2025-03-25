@@ -27,8 +27,8 @@ def main():
     
     # make log directory
     log_root = f"{config['log_root']}/{config['name']}"
-    for dirname in config['log_dir_names']:
-        os.makedirs(f"{log_root}/{dirname}", exist_ok=True)
+    for dirtype in config['log_dir_names'].keys():
+        os.makedirs(f"{log_root}/{config['log_dir_names'][dirtype]}", exist_ok=True)
 
     # traindataset = ImagesDataset2D(config['dataset'], train=True)
     # testdataset = ImagesDataset2D(config['dataset'], train=False)
