@@ -1,0 +1,80 @@
+# config.yaml
+name: 'Unet_GAN' # 模型名称
+# device: 'cuda' # 使用的设备
+
+model: '' # 暂时无用，留在这里
+  
+dataset:
+  # 训练CT数据路径
+  trainCT_root: [
+    '/home/featurize/data/TRAINNING/CT',
+  ]
+  # 训练MR数据路径
+  trainMR_root: [
+    '/home/featurize/data/TRAINNING/MR_DWI',
+  ]
+  # 测试CT路径
+  testCT_root: [ # 没有额外的测试数据
+    '/home/featurize/data/TRAINNING/CT',
+  ]
+  # 测试MR路径 
+  testMR_root: [ # 没有额外的测试数据
+    '/home/featurize/data/TRAINNING/MR_DWI',
+  ]
+  preload: true  # 将dataset直接加入内存
+
+solver:
+  input_nc: 1
+  output_nc: 1
+  size: 256
+
+  n_cpu: 8
+
+  lr: 0.0001 # 学习率
+  decay_epoch: 20
+
+  batch_size: 1 # 批次大小
+
+
+  start_epoch: 0        # starting epoch
+  n_epochs: 300       # How often do you want to display output images during training
+  
+  SR_lambda: 20 # used 即 Corr_lamda
+  Adv_lambda: 1 # used
+  Cyc_lamda: 10
+  Corr_lamda: 20
+  Smooth_lambda: 10 # used
+  Seg_lamda: 1
+  flip_lamda: 20
+
+
+
+
+misc:
+  mode: train # 运行模式 train 或 test
+  eval_interval: 10 # 日志记录间隔
+  sample_interval: 10 # 采样间隔
+  result_interval: 10 # 结果保存间隔
+  model_save_interval: 50 # 模型保存间隔
+
+  log_root: '/home/featurize/data/output' # 日志保存路径
+  log_dir_names: 
+    loss: 'metric_loss' # log_root + '/' +  name + '/' + loss_dir_name
+    checkpoint: 'checkpoints'
+    sample: 'samples'
+    result: 'results'
+
+log_root: '/home/featurize/data/output' # 日志保存路径
+log_dir_names: 
+  loss: 'metric_loss' # log_root + '/' +  name + '/' + loss_dir_name
+  checkpoint: 'checkpoints'
+  sample: 'samples'
+  result: 'results'
+
+
+
+bugfree:
+  bugfree_img_path: './utils/bugfree_img/' # bugfree图片路径 (相对路径，相对于工作目录)
+  img_name: buddha.bugfree # bugfree图片名称 # buddha.buggfree
+  start_color: FF7EC7 # bugfree图片起始颜色
+  end_color: FFED46 # bugfree图片结束颜色
