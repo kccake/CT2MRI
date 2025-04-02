@@ -46,16 +46,13 @@ class Solver(object):
         self.spatial_transformer = Transformer_3D().to(self.device)
         self.optimizer_R = optim.Adam(self.R.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
 
-        
-        
-        
         # 3.断点恢复
-        # TODO ↓ 定义断点恢复
         if self.config['start_epoch'] > 0:
             checkpoint_root = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['checkpoint']
             filepath = checkpoint_root / f'epoch_{self.config["start_epoch"]}.ckpt'
             try:
                 checkpoint = torch.load(filepath)
+                self.start_SSIM = checkpoint['best_SSIM']
                 self.netG.load_state_dict(checkpoint['netG'])
                 self.netD.load_state_dict(checkpoint['netD'])
                 self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
@@ -73,11 +70,8 @@ class Solver(object):
             else:
                 print(f'\033[1;32m[success]\033[0m 断点恢复成功，从 {self.config['start_epoch']}代 继续训练')             
         # (*Φ皿Φ*)
-        # TODO ↑ 定义断点恢复
         
             
-        
-        
         # 4.损失函数
         self.MSE_loss = nn.MSELoss().to(self.device)
         self.L1_loss = nn.L1Loss().to(self.device)
@@ -105,7 +99,7 @@ class Solver(object):
         self.target_fake = Variable(Tensor(1,1).fill_(0.0), requires_grad=False).to(self.device)
     
     def train(self):
-        best_SSIM = 0
+        best_SSIM = self.start_SSIM if self.start_SSIM is not None else 0.0
         self.start_time = time.time()
         
         self.epoch_bar = tqdm(range(self.config['n_epochs']), desc='Training Progress', unit='epoch', position=0)
@@ -116,10 +110,10 @@ class Solver(object):
             for batch_idx, batch_data in enumerate(self.train_loader):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
-                # ===== reggan training =====
-                # self.R.train()
-                # self.netG.train()
-                # self.netD.eval()
+                # ===== reggan & generator training =====
+                self.R.train()
+                self.netG.train()
+                self.netD.eval()
                 self.optimizer_R.zero_grad()
                 self.optimizer_G.zero_grad()
                 
@@ -143,17 +137,17 @@ class Solver(object):
                 self.optimizer_G.step()
                 
                 # ===== discriminator training =====
-                # self.netD.train()
-                # self.netG.eval()
+                self.netD.train()
+                self.netG.eval()
                 self.optimizer_D.zero_grad()
                 with torch.no_grad():
                     fake_B = self.netG(real_A)
                 pred_fake = self.netD(fake_B)
                 pred_real = self.netD(real_B)
-                loss_D_B = (self.MSE_loss(pred_real, self.target_real) + self.MSE_loss(pred_fake, self.target_fake)) * self.config['Adv_lambda']
-                if torch.isnan(loss_D_B).any():
+                loss_D = (self.MSE_loss(pred_real, self.target_real) + self.MSE_loss(pred_fake, self.target_fake)) * self.config['Adv_lambda']
+                if torch.isnan(loss_D).any():
                     continue
-                loss_D_B.backward()
+                loss_D.backward()
                 self.optimizer_D.step()
                 
                 self.batch_bar.update(1)
@@ -206,12 +200,6 @@ class Solver(object):
                 losses['SM_loss'].append(SM_loss)
                 losses['total_loss'].append(total_loss)
                 
-                # # 转化为 0~255
-                # real_img = (real_B + 1) * 127.5 # 将[-1, 1]转化为[0, 255]
-                # real_img = real_img.clamp(0, 255).byte() # 限制范围
-                # fake_img = (fake_B + 1) * 127.5 # 将[-1, 1]转化为[0, 255]
-                # fake_img = fake_img.clamp(0, 255).byte() # 限制范围
-                
                 metrics['ssim'].append(self.ssim(fake_B, real_B))
                 metrics['psnr'].append(self.psnr(fake_B, real_B))
                 self.eval_bar.update(1)
@@ -250,6 +238,7 @@ class Solver(object):
         os.makedirs(checkpoint_root, exist_ok=True)
         filepath = checkpoint_root / f'epoch_{epoch}.ckpt'
         torch.save({
+            'best_SSIM': best_SSIM,
             'epoch': epoch,
             'netG': self.netG.state_dict(),
             'netD': self.netD.state_dict(),
