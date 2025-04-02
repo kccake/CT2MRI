@@ -1,5 +1,5 @@
 # config.yaml
-name: 'RegGAN' # 模型名称
+name: 'Unet_GAN' # 模型名称
 # device: 'cuda' # 使用的设备
 
 model: '' # 暂时无用，留在这里
@@ -8,19 +8,19 @@ dataset:
   # 训练CT数据路径
   trainCT_root: [
     # '/home/featurize/data/TRAINNING/CT',
-    '/root/autodl-tmp/data/synth2023/train/CT'
+    '/root/autodl-tmp/data/npy_out/CT'
   ]
   # 训练MR数据路径
   trainMR_root: [
-    '/root/autodl-tmp/data/synth2023/train/MR',
+    '/root/autodl-tmp/data/npy_out/MR',
   ]
   # 测试CT路径
-  testCT_root: [
-    '/root/autodl-tmp/data/synth2023/val/CT',
+  testCT_root: [ # 没有额外的测试数据
+    '/root/autodl-tmp/data/npy_out/CT',
   ]
   # 测试MR路径 
-  testMR_root: [
-    '/root/autodl-tmp/data/synth2023/val/MR',
+  testMR_root: [ # 没有额外的测试数据
+    '/root/autodl-tmp/data/npy_out/MR',
   ]
   preload: true  # 将dataset直接加入内存
 
@@ -58,14 +58,20 @@ misc:
   result_interval: 10 # 结果保存间隔
   model_save_interval: 50 # 模型保存间隔
 
-  # log_root: '/home/featurize/data/output' # 日志保存路径
-  log_root: '/root/autodl-tmp/data/output' # 日志保存路径
+  log_root: '/home/featurize/data/output' # 日志保存路径
   log_dir_names: 
     loss: 'metric_loss' # log_root + '/' +  name + '/' + loss_dir_name
     checkpoint: 'checkpoints'
     sample: 'samples'
     result: 'results'
-log_root: '/root/autodl-tmp/data/output' # 日志保存路径
+
+log_root: '/home/featurize/data/output' # 日志保存路径
+log_dir_names: 
+  loss: 'metric_loss' # log_root + '/' +  name + '/' + loss_dir_name
+  checkpoint: 'checkpoints'
+  sample: 'samples'
+  result: 'results'
+
 
 
 bugfree:

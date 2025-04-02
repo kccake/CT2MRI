@@ -9,9 +9,6 @@ import torch.nn.functional as F
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-
-
-
 def main():
     print(f'\033[1;34m[info]\033[0m main.py \033[1;32mstart\033[0m')
     
@@ -24,12 +21,15 @@ def main():
     config = load_yaml(opts.config)
     
     # print config
-    print(f'\033[1;34m[info]\033[0m config: {config}')
+    # print(f'\033[1;34m[info]\033[0m config: {config}')
+    
+    bugfree = BugFree(config['bugfree'])
+    bugfree()
     
     # make log directory
-    log_root = f"{config['log_root']}/{config['name']}"
-    for dirtype in config['log_dir_names'].keys():
-        os.makedirs(f"{log_root}/{config['log_dir_names'][dirtype]}", exist_ok=True)
+    log_root = f"{config['misc']['log_root']}/{config['name']}"
+    for dirtype in config['misc']['log_dir_names'].keys():
+        os.makedirs(f"{log_root}/{config['misc']['log_dir_names'][dirtype]}", exist_ok=True)
 
     # trainloader = DataLoader(ImagesDataset3D(config['dataset'], train=True))
     # testloader = DataLoader(ImagesDataset3D(config['dataset'], train=False))

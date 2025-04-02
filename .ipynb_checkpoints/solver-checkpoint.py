@@ -55,7 +55,7 @@ class Solver(object):
         self.MSE_loss = nn.MSELoss().to(self.device)
         self.L1_loss = nn.L1Loss().to(self.device)
         
-        self.ssim = SSIM(data_range=2.0).to(self.device)
+        self.ssim = SSIM(data_range=255.0).to(self.device)
         self.psnr = PSNR(data_range=2.0).to(self.device)
 
         # 5.内/显存分配
@@ -85,10 +85,6 @@ class Solver(object):
         for self.epoch in range(self.config['start_epoch'], self.config['n_epochs']):
             self.batch_bar = tqdm(self.train_loader, desc='Batch Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(self.train_loader):
-                # 只训前50%看看效果
-                if batch_idx > len(self.train_loader) * 0.5: # DUBUG
-                    break # DUBUG
-                
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 # reggan training
@@ -156,13 +152,7 @@ class Solver(object):
         losses = defaultdict(list)
         
         with torch.no_grad():
-            self.eval_bar = tqdm(dataloader, desc='Eval Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(dataloader):
-                # 只测后50%看看效果
-                if batch_idx < len(dataloader) * 0.5: # DUBUG
-                    self.epoch_bar.update(1)
-                    continue # DUBUG
-                    
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 
@@ -183,10 +173,8 @@ class Solver(object):
                 losses['SM_loss'].append(SM_loss)
                 losses['total_loss'].append(total_loss)
                 
-                metrics['ssim'].append(self.ssim(SysRegist_A2B, real_B))
-                metrics['psnr'].append(self.psnr(SysRegist_A2B, real_B))
-                self.eval_bar.update(1)
-            self.eval_bar.close()
+                metrics['ssim'].append(self.ssim(fake_B, real_B))
+                metrics['psnr'].append(self.psnr(fake_B, real_B))
             
             # 保存最后一个的real_A, real_B, fake_B
             sample_dir = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['sample']

@@ -28,14 +28,19 @@ class ImagesDataset3D(Dataset):
             self.MR_images = []
             for path in self.CT_paths:
                 CT_image = torch.from_numpy(np.load(path).astype(np.float32))
-                self.CT_images.append(CT_image.unsqueeze(0)) # torch.Size([1, 32, 256, 256])
+                if len(CT_image.shape) == 3: # 如果是3D图像，增加一个维度
+                    CT_image = CT_image.unsqueeze(0)
+                self.CT_images.append(CT_image) # torch.Size([1, 32, 256, 256])
             for path in self.MR_paths:
                 MR_image = torch.from_numpy(np.load(path).astype(np.float32))
-                self.MR_images.append(MR_image.unsqueeze(0)) # torch.Size([1, 32, 256, 256])
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
+                # 如果是3D图像，增加一个维度
+                if len(MR_image.shape) == 3:
+                    MR_image = MR_image.unsqueeze(0)
+                self.MR_images.append(MR_image) # torch.Size([1, 32, 256, 256])
+            print(f'\033[1;34m[info]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
         # not Preload images
         else:
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and \033[32m{len(self.MR_paths)}\033[0m  MR images are\033[34m founded.')
+            print(f'\033[1;34m[info]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and \033[32m{len(self.MR_paths)}\033[0m  MR images are\033[34m founded.')
     
     def __getitem__(self, index):
         if self.preload:

@@ -42,10 +42,10 @@ class ImagesDataset2D(Dataset):
             self.MR_images = torch.cat(self.MR_images, dim=0)
             self.MR_images = self.MR_images.unsqueeze(1)
             
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
+            print(f'\033[1;34m[info]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
         # not Preload images
         else:
-            print(f'\033[1;34m[INFO]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and \033[32m{len(self.MR_paths)}\033[0m MR images are\033[34m founded.')
+            print(f'\033[1;34m[info]\033[0m \033[32m{len(self.CT_paths)}\033[0m CT images and \033[32m{len(self.MR_paths)}\033[0m MR images are\033[34m founded.')
     
     def __getitem__(self, index):
         if self.preload:
