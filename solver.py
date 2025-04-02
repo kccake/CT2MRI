@@ -45,7 +45,7 @@ class Solver(object):
         self.spatial_transformer = Transformer_3D().to(self.device)
         self.optimizer_R_A = optim.Adam(self.R_A.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
         # 备用
-        # self.optimizer_G = optim.Adam(itertools.chain(self.netG_A2B.parameters(), self.netG_B2A.parameters()),lr=config['lr'], betas=(0.5, 0.999)).to(self.device)
+        self.optimizer_G = optim.Adam(self.netG_A2B.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
         # 3.断点恢复
         # TODO ↓ 定义断点恢复
         # (*Φ皿Φ*)
@@ -67,7 +67,7 @@ class Solver(object):
         # 6.数据加载
         self.train_loader = DataLoader(ImagesDataset3D(config['dataset'], train=True))
         print(f'\033[1;34m[info]\033[0m train_loader已加载 \033[32m{len(self.train_loader)}\033[0m 个batch')
-        self.val_loader = DataLoader(ImagesDataset3D(config['dataset'], train=True))
+        self.val_loader = DataLoader(ImagesDataset3D(config['dataset'], train=False))
         print(f'\033[1;34m[info]\033[0m val_loader已加载 \033[32m{len(self.val_loader)}\033[0m 个batch')
         
     def _allocate_memory(self):
@@ -78,24 +78,21 @@ class Solver(object):
         self.target_fake = Variable(Tensor(1,1).fill_(0.0), requires_grad=False).to(self.device)
     
     def train(self):
-        self.start_time = time.time()
         best_SSIM = 0
+        self.start_time = time.time()
         self.epoch_bar = tqdm(range(self.config['n_epochs']), desc='Training Progress', unit='epoch', position=0)
         
         for self.epoch in range(self.config['start_epoch'], self.config['n_epochs']):
             self.batch_bar = tqdm(self.train_loader, desc='Batch Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(self.train_loader):
-                # 只训前50%看看效果
-                if batch_idx > len(self.train_loader) * 0.5: # DUBUG
-                    break # DUBUG
-                
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
-                # reggan training
-                self.R_A.train()
-                self.netD_B.train()
+                # ===== reggan training =====
+                # self.R_A.train()
+                # self.netG_A2B.train()
+                # self.netD_B.eval()
                 self.optimizer_R_A.zero_grad()
-                # self.optimizer_G.zero_grad() # 备用
+                self.optimizer_G.zero_grad()
                 
                 fake_B = self.netG_A2B(real_A)
                 Trans = self.R_A(fake_B, real_B)
@@ -104,9 +101,9 @@ class Solver(object):
                 
                 pred_fake = self.netD_B(fake_B)
                 
-                Adv_loss = self.MSE_loss(pred_fake, self.target_real)
+                Adv_loss = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
                 
-                SM_loss = smooothing_loss(Trans) * self.config['Smooth_lambda']
+                SM_loss = smooothing_loss(Trans) * self.config['SM_lambda']
                 
                 total_loss = SR_loss + Adv_loss + SM_loss
                 if torch.isnan(total_loss).any():
@@ -114,9 +111,11 @@ class Solver(object):
                 
                 total_loss.backward()
                 self.optimizer_R_A.step()
-                # self.optimizer_G.step() # 备用
+                self.optimizer_G.step()
                 
-                # discriminator training
+                # ===== discriminator training =====
+                # self.netD_B.train()
+                # self.netG_A2B.eval()
                 self.optimizer_D_B.zero_grad()
                 with torch.no_grad():
                     fake_B = self.netG_A2B(real_A)
@@ -134,23 +133,23 @@ class Solver(object):
             self.epoch_bar.update(1)
             # TODO 评估 未完善
             if self.epoch % self.misc['eval_interval'] == 0:
-                self.epoch_bar.write(f'\033[1;34m[info]\033[0m Evaluating...')
-                train_metrics = self._evaluate(self.train_loader)
-                self.epoch_bar.write(f'\033[1;34m[info]\033[0m epoch: {self.epoch}, train_metrics: {train_metrics}')
+                tqdm.write(f'\033[1;34m[info]\033[0m Evaluating...')
+                train_metrics = self._evaluate(self.val_loader)
+                tqdm.write(f'\033[1;34m[info]\033[0m epoch: {self.epoch}, train_metrics: {train_metrics}')
                 # print(f'\033[1;34m[info]\033[0m epoch: {epoch}, train_metrics: {train_metrics}')
                 # val_metrics = self._evaluate(self.val_loader)
                 # print(f'\033[1;34m[info]\033[0m epoch: {epoch}, train_metrics: {train_metrics}, val_metrics: {val_metrics}')
                 # if val_metrics['metrics']['ssim'] > best_SSIM:
                 #     best_SSIM = val_metrics['metrics']['ssim']
                 #     self.save_checkpoint(epoch, best_SSIM)
-                self.epoch_bar.write(f'\033[1;34m[info]\033[0m Training...')
+                tqdm.write(f'\033[1;34m[info]\033[0m Training...')
                 
         self.epoch_bar.close()
         
     def _evaluate(self, dataloader):
         self.netG_A2B.eval()
         self.netD_B.eval()
-        self.R_A.eval()
+        # self.R_A.eval()
         
         metrics = defaultdict(list)
         losses = defaultdict(list)
@@ -158,11 +157,6 @@ class Solver(object):
         with torch.no_grad():
             self.eval_bar = tqdm(dataloader, desc='Eval Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(dataloader):
-                # 只测后50%看看效果
-                if batch_idx < len(dataloader) * 0.5: # DUBUG
-                    self.epoch_bar.update(1)
-                    continue # DUBUG
-                    
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 
@@ -173,8 +167,8 @@ class Solver(object):
                 SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
                 SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
                 pred_fake = self.netD_B(fake_B)
-                Adv_loss = self.MSE_loss(pred_fake, self.target_real)
-                SM_loss = smooothing_loss(Trans) * self.config['Smooth_lambda']
+                Adv_loss = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
+                SM_loss = smooothing_loss(Trans) * self.config['SM_lambda']
                 total_loss = SR_loss + Adv_loss + SM_loss
                 if torch.isnan(total_loss).any():
                     continue
@@ -183,8 +177,14 @@ class Solver(object):
                 losses['SM_loss'].append(SM_loss)
                 losses['total_loss'].append(total_loss)
                 
-                metrics['ssim'].append(self.ssim(SysRegist_A2B, real_B))
-                metrics['psnr'].append(self.psnr(SysRegist_A2B, real_B))
+                # # 转化为 0~255
+                # real_img = (real_B + 1) * 127.5 # 将[-1, 1]转化为[0, 255]
+                # real_img = real_img.clamp(0, 255).byte() # 限制范围
+                # fake_img = (fake_B + 1) * 127.5 # 将[-1, 1]转化为[0, 255]
+                # fake_img = fake_img.clamp(0, 255).byte() # 限制范围
+                
+                metrics['ssim'].append(self.ssim(fake_B, real_B))
+                metrics['psnr'].append(self.psnr(fake_B, real_B))
                 self.eval_bar.update(1)
             self.eval_bar.close()
             

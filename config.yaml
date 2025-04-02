@@ -42,11 +42,12 @@ solver:
   
   SR_lambda: 20 # used 即 Corr_lamda
   Adv_lambda: 1 # used
-  Cyc_lamda: 10
-  Corr_lamda: 20
-  Smooth_lambda: 10 # used
-  Seg_lamda: 1
-  flip_lamda: 20
+  Cyc_lambda: 10
+  Corr_lambda: 20
+  Smooth_lambda: 10 # 见 SM_lambda
+  SM_lambda: 10 # used
+  Seg_lambda: 1
+  flip_lambda: 20
 
 
 
