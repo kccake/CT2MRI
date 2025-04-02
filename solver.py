@@ -37,19 +37,46 @@ class Solver(object):
         
         # 2.定义模型
         # base
-        self.netG_A2B = Generator(self.config['input_nc'], self.config['output_nc']).to(self.device)
-        self.netD_B = Discriminator(self.config['input_nc']).to(self.device)
-        self.optimizer_D_B = optim.Adam(self.netD_B.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
+        self.netG = Generator(self.config['input_nc'], self.config['output_nc']).to(self.device)
+        self.netD = Discriminator(self.config['input_nc']).to(self.device)
+        self.optimizer_G = optim.Adam(self.netG.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
+        self.optimizer_D = optim.Adam(self.netD.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
         # regist
-        self.R_A = Reg(32, self.config['size'], self.config['size'], self.config['input_nc'], self.config['input_nc']).to(self.device)
+        self.R = Reg(32, self.config['size'], self.config['size'], self.config['input_nc'], self.config['input_nc']).to(self.device)
         self.spatial_transformer = Transformer_3D().to(self.device)
-        self.optimizer_R_A = optim.Adam(self.R_A.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
-        # 备用
-        self.optimizer_G = optim.Adam(self.netG_A2B.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
+        self.optimizer_R = optim.Adam(self.R.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
+
+        
+        
+        
         # 3.断点恢复
         # TODO ↓ 定义断点恢复
+        if self.config['start_epoch'] > 0:
+            checkpoint_root = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['checkpoint']
+            filepath = checkpoint_root / f'epoch_{self.config["start_epoch"]}.ckpt'
+            try:
+                checkpoint = torch.load(filepath)
+                self.netG.load_state_dict(checkpoint['netG'])
+                self.netD.load_state_dict(checkpoint['netD'])
+                self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
+                self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
+                
+                self.R.load_state_dict(checkpoint['R'])
+                self.spatial_transformer.load_state_dict(checkpoint['spatial_transformer'])
+                self.optimizer_R.load_state_dict(checkpoint['optimizer_R'])
+            except FileNotFoundError:
+                print(f'\033[1;31m[error]\033[0m 未能找到断点恢复文件，从0开始训练')
+                self.config['start_epoch'] = 0
+            except:
+                print(f'\033[1;31m[error]\033[0m 断点恢复文件损坏或加载异常，从0开始训练')
+                self.config['start_epoch'] = 0
+            else:
+                print(f'\033[1;32m[success]\033[0m 断点恢复成功，从 {self.config['start_epoch']}代 继续训练')             
         # (*Φ皿Φ*)
         # TODO ↑ 定义断点恢复
+        
+            
+        
         
         # 4.损失函数
         self.MSE_loss = nn.MSELoss().to(self.device)
@@ -80,7 +107,9 @@ class Solver(object):
     def train(self):
         best_SSIM = 0
         self.start_time = time.time()
+        
         self.epoch_bar = tqdm(range(self.config['n_epochs']), desc='Training Progress', unit='epoch', position=0)
+        self.epoch_bar.update(self.config['start_epoch']) # 更新到start_epoch
         
         for self.epoch in range(self.config['start_epoch'], self.config['n_epochs']):
             self.batch_bar = tqdm(self.train_loader, desc='Batch Progress', unit='batch', position=1, leave=False)
@@ -88,18 +117,18 @@ class Solver(object):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 # ===== reggan training =====
-                # self.R_A.train()
-                # self.netG_A2B.train()
-                # self.netD_B.eval()
-                self.optimizer_R_A.zero_grad()
+                # self.R.train()
+                # self.netG.train()
+                # self.netD.eval()
+                self.optimizer_R.zero_grad()
                 self.optimizer_G.zero_grad()
                 
-                fake_B = self.netG_A2B(real_A)
-                Trans = self.R_A(fake_B, real_B)
+                fake_B = self.netG(real_A)
+                Trans = self.R(fake_B, real_B)
                 SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
                 SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
                 
-                pred_fake = self.netD_B(fake_B)
+                pred_fake = self.netD(fake_B)
                 
                 Adv_loss = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
                 
@@ -110,22 +139,22 @@ class Solver(object):
                     continue
                 
                 total_loss.backward()
-                self.optimizer_R_A.step()
+                self.optimizer_R.step()
                 self.optimizer_G.step()
                 
                 # ===== discriminator training =====
-                # self.netD_B.train()
-                # self.netG_A2B.eval()
-                self.optimizer_D_B.zero_grad()
+                # self.netD.train()
+                # self.netG.eval()
+                self.optimizer_D.zero_grad()
                 with torch.no_grad():
-                    fake_B = self.netG_A2B(real_A)
-                pred_fake = self.netD_B(fake_B)
-                pred_real = self.netD_B(real_B)
+                    fake_B = self.netG(real_A)
+                pred_fake = self.netD(fake_B)
+                pred_real = self.netD(real_B)
                 loss_D_B = (self.MSE_loss(pred_real, self.target_real) + self.MSE_loss(pred_fake, self.target_fake)) * self.config['Adv_lambda']
                 if torch.isnan(loss_D_B).any():
                     continue
                 loss_D_B.backward()
-                self.optimizer_D_B.step()
+                self.optimizer_D.step()
                 
                 self.batch_bar.update(1)
             self.batch_bar.close()
@@ -134,22 +163,22 @@ class Solver(object):
             # TODO 评估 未完善
             if self.epoch % self.misc['eval_interval'] == 0:
                 tqdm.write(f'\033[1;34m[info]\033[0m Evaluating...')
+                
                 train_metrics = self._evaluate(self.val_loader)
                 tqdm.write(f'\033[1;34m[info]\033[0m epoch: {self.epoch}, train_metrics: {train_metrics}')
-                # print(f'\033[1;34m[info]\033[0m epoch: {epoch}, train_metrics: {train_metrics}')
-                # val_metrics = self._evaluate(self.val_loader)
-                # print(f'\033[1;34m[info]\033[0m epoch: {epoch}, train_metrics: {train_metrics}, val_metrics: {val_metrics}')
-                # if val_metrics['metrics']['ssim'] > best_SSIM:
-                #     best_SSIM = val_metrics['metrics']['ssim']
-                #     self.save_checkpoint(epoch, best_SSIM)
+                # 保存最好的模型
+                if train_metrics['metrics']['ssim'] > best_SSIM:
+                    best_SSIM = train_metrics['metrics']['ssim']
+                    self.save_checkpoint(self.epoch, best_SSIM)
+                
                 tqdm.write(f'\033[1;34m[info]\033[0m Training...')
                 
         self.epoch_bar.close()
         
     def _evaluate(self, dataloader):
-        self.netG_A2B.eval()
-        self.netD_B.eval()
-        # self.R_A.eval()
+        self.netG.eval()
+        self.netD.eval()
+        # self.R.eval()
         
         metrics = defaultdict(list)
         losses = defaultdict(list)
@@ -160,13 +189,13 @@ class Solver(object):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 
-                self.optimizer_R_A.zero_grad()
+                self.optimizer_R.zero_grad()
                 
-                fake_B = self.netG_A2B(real_A)
-                Trans = self.R_A(fake_B, real_B)
+                fake_B = self.netG(real_A)
+                Trans = self.R(fake_B, real_B)
                 SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
                 SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
-                pred_fake = self.netD_B(fake_B)
+                pred_fake = self.netD(fake_B)
                 Adv_loss = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
                 SM_loss = smooothing_loss(Trans) * self.config['SM_lambda']
                 total_loss = SR_loss + Adv_loss + SM_loss
@@ -215,3 +244,21 @@ class Solver(object):
             json.dump(metric_loss, f)
         
         return metric_loss
+    
+    def save_checkpoint(self, epoch, best_SSIM):
+        checkpoint_root = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['checkpoint']
+        os.makedirs(checkpoint_root, exist_ok=True)
+        filepath = checkpoint_root / f'epoch_{epoch}.ckpt'
+        torch.save({
+            'epoch': epoch,
+            'netG': self.netG.state_dict(),
+            'netD': self.netD.state_dict(),
+            'optimizer_G': self.optimizer_G.state_dict(),
+            'optimizer_D': self.optimizer_D.state_dict(),
+            
+            'R': self.R.state_dict(),
+            'spatial_transformer': self.spatial_transformer.state_dict(),
+            'optimizer_R': self.optimizer_R.state_dict(),
+        }, filepath)
+        tqdm.write(f'\033[1;32m[success]\033[0m 保存模型到 {filepath}')
+        
