@@ -42,9 +42,9 @@ class Solver(object):
         self.optimizer_G = optim.Adam(self.netG.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
         self.optimizer_D = optim.Adam(self.netD.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
         # regist
-        self.R = Reg(32, self.config['size'], self.config['size'], self.config['input_nc'], self.config['input_nc']).to(self.device)
+        self.netR = Reg(32, self.config['size'], self.config['size'], self.config['input_nc'], self.config['input_nc']).to(self.device)
         self.spatial_transformer = Transformer_3D().to(self.device)
-        self.optimizer_R = optim.Adam(self.R.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
+        self.optimizer_R = optim.Adam(self.netR.parameters(), lr=self.config['lr'], betas=(0.5, 0.999))
 
         # 3.断点恢复
         if self.config['start_epoch'] > 0:
@@ -57,8 +57,10 @@ class Solver(object):
                 self.netD.load_state_dict(checkpoint['netD'])
                 self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
                 self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
-                
-                self.R.load_state_dict(checkpoint['R'])
+                if 'R' in checkpoint: # 之前代码的坑
+                    self.netR.load_state_dict(checkpoint['R'])
+                else:
+                    self.netR.load_state_dict(checkpoint['netR'])
                 self.spatial_transformer.load_state_dict(checkpoint['spatial_transformer'])
                 self.optimizer_R.load_state_dict(checkpoint['optimizer_R'])
             except FileNotFoundError:
@@ -111,14 +113,14 @@ class Solver(object):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 # ===== reggan & generator training =====
-                self.R.train()
+                self.netR.train()
                 self.netG.train()
                 self.netD.eval()
                 self.optimizer_R.zero_grad()
                 self.optimizer_G.zero_grad()
                 
                 fake_B = self.netG(real_A)
-                Trans = self.R(fake_B, real_B)
+                Trans = self.netR(fake_B, real_B)
                 SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
                 SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
                 
@@ -172,7 +174,7 @@ class Solver(object):
     def _evaluate(self, dataloader):
         self.netG.eval()
         self.netD.eval()
-        # self.R.eval()
+        self.netR.eval()
         
         metrics = defaultdict(list)
         losses = defaultdict(list)
@@ -186,7 +188,7 @@ class Solver(object):
                 self.optimizer_R.zero_grad()
                 
                 fake_B = self.netG(real_A)
-                Trans = self.R(fake_B, real_B)
+                Trans = self.netR(fake_B, real_B)
                 SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
                 SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
                 pred_fake = self.netD(fake_B)
@@ -245,7 +247,7 @@ class Solver(object):
             'optimizer_G': self.optimizer_G.state_dict(),
             'optimizer_D': self.optimizer_D.state_dict(),
             
-            'R': self.R.state_dict(),
+            'netR': self.netR.state_dict(),
             'spatial_transformer': self.spatial_transformer.state_dict(),
             'optimizer_R': self.optimizer_R.state_dict(),
         }, filepath)
