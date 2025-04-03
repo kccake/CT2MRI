@@ -31,6 +31,8 @@ class ImagesDataset2D(Dataset):
             self.MR_images = []
             for path in self.CT_paths:
                 CT_image = torch.from_numpy(np.load(path).astype(np.float32))
+                if len(CT_image.shape) == 3: # 如果是3D图像，增加一个维度
+                    CT_image = CT_image.unsqueeze(0)
                 self.CT_images.append(CT_image)
             self.CT_images = torch.cat(self.CT_images, dim=0) # [N, 256, 256]
             # 转化为 [N, 1, 256, 256]
@@ -38,6 +40,9 @@ class ImagesDataset2D(Dataset):
             
             for path in self.MR_paths:
                 MR_image = torch.from_numpy(np.load(path).astype(np.float32))
+                # 如果是3D图像，增加一个维度
+                if len(MR_image.shape) == 3:
+                    MR_image = MR_image.unsqueeze(0)
                 self.MR_images.append(MR_image)
             self.MR_images = torch.cat(self.MR_images, dim=0)
             self.MR_images = self.MR_images.unsqueeze(1)

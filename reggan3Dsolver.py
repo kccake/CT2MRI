@@ -25,7 +25,7 @@ from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from models import Reg, Generator, Discriminator, Transformer_3D
 from utils import *
 
-class Solver(object):
+class RegGAN3DSolver(object):
     def __init__(self, config):
         super().__init__()
         # 1.保留参数
@@ -34,7 +34,7 @@ class Solver(object):
         self.misc = config['misc']
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+        self.start_SSIM = None
         # 2.定义模型
         # base
         self.netG = Generator(self.config['input_nc'], self.config['output_nc']).to(self.device)

@@ -1,7 +1,7 @@
 import os
 from utils import *
 from models import *
-from solver import Solver
+from reggan3Dsolver import RegGAN3DSolver
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -33,7 +33,7 @@ def main():
 
     # trainloader = DataLoader(ImagesDataset3D(config['dataset'], train=True))
     # testloader = DataLoader(ImagesDataset3D(config['dataset'], train=False))
-    solver = Solver(config)
+    solver = RegGAN3DSolver(config)
     solver.train()
     
         
