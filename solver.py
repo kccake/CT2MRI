@@ -34,7 +34,7 @@ class Solver(object):
         self.misc = config['misc']
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+        self.start_SSIM = None
         # 2.定义模型
         # base
         self.netG = Generator(self.config['input_nc'], self.config['output_nc']).to(self.device)
