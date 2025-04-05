@@ -93,4 +93,27 @@ class ResUnet2d(torch.nn.Module):
         return self.output(x)
     
 class Reg2D(nn.Module):
-    pass
+    def __init__(self, height, width, in_channels_a, in_channels_b):
+        super(Reg2D, self).__init__()
+        init_func = 'kaiming'
+        init_to_identity = True
+        
+        self.oh, self.ow = height, width
+        self.nc_a = in_channels_a
+        self.nc_b = in_channels_b
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.offset_map = ResUnet2d(self.nc_a, self.nc_b, cfg='A', init_func=init_func, init_to_identity=init_to_identity).to(self.device)
+        self.identity_grid = self.get_identity_grid()
+        
+    def get_identity_grid(self):
+        y = torch.linspace(-1.0, 1.0, self.oh)
+        x = torch.linspace(-1.0, 1.0, self.ow)
+        yy, xx = torch.meshgrid([y, x])
+        yy = yy.unsqueeze(dim=0)
+        xx = xx.unsqueeze(dim=0)
+        identity = torch.cat((xx, yy), dim=0).unsqueeze(0)
+        return identity
+    
+    def forward(self, img_a, img_b, apply_on=None):
+        deformations = self.offset_map(img_a, img_b)
+        return deformations
