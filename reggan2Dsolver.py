@@ -108,7 +108,7 @@ class RegGAN2DSolver(object):
         self.epoch_bar.update(self.config['start_epoch']) # 更新到start_epoch
         
         for self.epoch in range(self.config['start_epoch'], self.config['n_epochs']):
-            self.batch_bar = tqdm(total=len(self.train_loader), desc='Batch Progress', unit='batch', position=1)
+            self.batch_bar = tqdm(total=len(self.train_loader), desc='Batch Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(self.train_loader):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
@@ -160,6 +160,101 @@ class RegGAN2DSolver(object):
                 
             self.epoch_bar.update(1)
             
-            # 评估
+            # 评估 TODO
+            if self.epoch % self.misc['eval_interval'] == 0:
+                tqdm.write(f'\033[1;34m[info]\033[0m Evaluating...')
+                
+                train_metrics = self._evaluate(self.val_loader)
+                tqdm.write(f'\033[1;34m[info]\033[0m epoch: {self.epoch}, train_metrics: {train_metrics}')
+                # 保存最好的模型
+                if train_metrics['metrics']['ssim'] > best_SSIM:
+                    best_SSIM = train_metrics['metrics']['ssim']
+                    self.save_checkpoint(self.epoch, best_SSIM)
+                
+                tqdm.write(f'\033[1;34m[info]\033[0m Training...')
+            # (*Φ皿Φ*)
+            
             
         self.epoch_bar.close()
+        
+    def _evaluate(self, dataloader):
+        self.netG.eval()
+        self.netD.eval()
+        self.netR.eval()
+        
+        metrics = defaultdict(list)
+        losses = defaultdict(list)
+        
+        with torch.no_grad():
+            self.eval_bar = tqdm(total=len(dataloader), desc='Eval Progress', unit='batch', position=1, leave=False)
+            for batch_idx, batch_data in enumerate(dataloader):
+                real_A = batch_data['CT'].to(self.device)
+                real_B = batch_data['MR'].to(self.device)
+                
+                self.optimizer_R.zero_grad()
+                
+                fake_B = self.netG(real_A)
+                Trans = self.netR(fake_B, real_B)
+                SysRegist_A2B = self.spatial_transformer(fake_B, Trans)
+                SR_loss = self.L1_loss(SysRegist_A2B, real_B) * self.config['SR_lambda']
+                pred_fake = self.netD(fake_B)
+                Adv_loss = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
+                SM_loss = smooothing_loss2D(Trans) * self.config['SM_lambda']
+                total_loss = SR_loss + Adv_loss + SM_loss
+                if torch.isnan(total_loss).any():
+                    continue
+                losses['SR_loss'].append(SR_loss)
+                losses['adv_loss'].append(Adv_loss)
+                losses['SM_loss'].append(SM_loss)
+                losses['total_loss'].append(total_loss)
+                
+                metrics['ssim'].append(self.ssim(fake_B, real_B))
+                metrics['psnr'].append(self.psnr(fake_B, real_B))
+                self.eval_bar.update(1)
+            self.eval_bar.close()
+            
+            # 保存最后一个的real_A, real_B, fake_B
+            sample_dir = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['sample']
+            os.makedirs(sample_dir, exist_ok=True)
+            # 数据是(B,1,32,256,256)的
+            real_A = real_A[0, 0].cpu().numpy()
+            real_B = real_B[0, 0].cpu().numpy()
+            fake_B = fake_B[0, 0].cpu().numpy()
+            # 保存为npy
+            np.save(sample_dir / f'real_A_{self.epoch}_{batch_idx}.npy', real_A)
+            np.save(sample_dir / f'real_B_{self.epoch}_{batch_idx}.npy', real_B)
+            np.save(sample_dir / f'fake_B_{self.epoch}_{batch_idx}.npy', fake_B)
+            
+        # 对字典中的所有元素取平均
+        losses = {key: torch.mean(torch.stack(value)).item() for key, value in losses.items()}
+        metrics = {key: torch.mean(torch.stack(value)).item() for key, value in metrics.items()}
+        metric_loss = {
+            'losses' : losses,
+            'metrics' : metrics
+        }
+        
+        log_dir = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['loss']
+        os.makedirs(log_dir, exist_ok=True)
+        # 保存metric_loss为json
+        with open(log_dir / f'metric_loss_{self.epoch}.json', 'w') as f:
+            json.dump(metric_loss, f)
+        
+        return metric_loss
+        
+    def save_checkpoint(self, epoch, best_SSIM):
+        checkpoint_root = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['checkpoint']
+        os.makedirs(checkpoint_root, exist_ok=True)
+        filepath = checkpoint_root / f'epoch_{epoch}.ckpt'
+        torch.save({
+            'best_SSIM': best_SSIM,
+            'epoch': epoch,
+            'netG': self.netG.state_dict(),
+            'netD': self.netD.state_dict(),
+            'optimizer_G': self.optimizer_G.state_dict(),
+            'optimizer_D': self.optimizer_D.state_dict(),
+            
+            'netR': self.netR.state_dict(),
+            'spatial_transformer': self.spatial_transformer.state_dict(),
+            'optimizer_R': self.optimizer_R.state_dict(),
+        }, filepath)
+        tqdm.write(f'\033[1;32m[success]\033[0m 保存模型到 {filepath}')

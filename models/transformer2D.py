@@ -15,7 +15,7 @@ class Transformer_2D(nn.Module):
         size = (h, w)
         
         vectors = [torch.arange(0, s) for s in size]
-        grids = torch.meshgrid(vectors)
+        grids = torch.meshgrid(vectors, indexing='ij')
         grid = torch.stack(grids)
         grid = grid.to(torch.float32)
         grid = grid.repeat(b, 1, 1, 1).cuda()
