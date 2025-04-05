@@ -1,5 +1,5 @@
 # config.yaml
-name: 'RegGAN' # 模型名称
+name: 'RegGAN2D' # 模型名称
 # device: 'cuda' # 使用的设备
 
 model: '' # 暂时无用，留在这里

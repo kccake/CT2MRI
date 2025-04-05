@@ -46,6 +46,9 @@ class ImagesDataset2D(Dataset):
                 self.MR_images.append(MR_image)
             self.MR_images = torch.cat(self.MR_images, dim=0)
             self.MR_images = self.MR_images.unsqueeze(1)
+            # 将 [N,C,D,H,W] 转化为 [N*D,C,H,W]
+            self.CT_images = self.CT_images.view(-1, 1, 256, 256)
+            self.MR_images = self.MR_images.view(-1, 1, 256, 256)
             
             print(f'\033[1;34m[info]\033[0m \033[32m{len(self.CT_images)}\033[0m CT images and \033[32m{len(self.MR_images)}\033[0m MR images are\033[34m preloaded\033[0m.')
         # not Preload images
@@ -62,4 +65,5 @@ class ImagesDataset2D(Dataset):
         return {'CT': CT_image, 'MR': MR_image} # 每个都是 torch.Size([256, 256])
     
     def __len__(self):
-        return max(len(self.CT_paths), len(self.MR_paths))
+        # return max(len(self.CT_paths), len(self.MR_paths))
+        return max(len(self.CT_images), len(self.MR_images))

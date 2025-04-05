@@ -104,12 +104,13 @@ class RegGAN3DSolver(object):
         best_SSIM = self.start_SSIM if self.start_SSIM is not None else 0.0
         self.start_time = time.time()
         
-        self.epoch_bar = tqdm(range(self.config['n_epochs']), desc='Training Progress', unit='epoch', position=0)
+        self.epoch_bar = tqdm(total=self.config['n_epochs'], desc='Training Progress', unit='epoch', position=0)
         self.epoch_bar.update(self.config['start_epoch']) # 更新到start_epoch
         
         for self.epoch in range(self.config['start_epoch'], self.config['n_epochs']):
-            self.batch_bar = tqdm(self.train_loader, desc='Batch Progress', unit='batch', position=1, leave=False)
+            self.batch_bar = tqdm(total=len(self.train_loader), desc='Batch Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(self.train_loader):
+                # print(f'\033[1;33m[debug]\033[0m batch_idx: {batch_idx}, real_A.shape: {batch_data["CT"].shape}, real_B.shape: {batch_data["MR"].shape}')
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 # ===== reggan & generator training =====
@@ -180,7 +181,7 @@ class RegGAN3DSolver(object):
         losses = defaultdict(list)
         
         with torch.no_grad():
-            self.eval_bar = tqdm(dataloader, desc='Eval Progress', unit='batch', position=1, leave=False)
+            self.eval_bar = tqdm(total=len(dataloader), desc='Eval Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(dataloader):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
