@@ -34,7 +34,7 @@ solver:
   lr: 0.0001 # 学习率
   decay_epoch: 20
 
-  batch_size: 32 # 批次大小
+  batch_size: 64 # 批次大小
 
 
   start_epoch: 0      # 起始轮数
@@ -42,6 +42,7 @@ solver:
   
   SR_lambda: 20 # used 即 Corr_lamda
   Adv_lambda: 1 # used
+  L1_lambda: 10 # used
   Cyc_lambda: 10
   Corr_lambda: 20
   Smooth_lambda: 10 # 见 SM_lambda
