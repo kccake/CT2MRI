@@ -133,7 +133,7 @@ class GAN3DSolver(object):
                 
                 pred_fake = self.netD(fake_B)
                 
-                g_loss_adv = -torch.mean(pred_fake) * self.config['Adv_lambda']
+                g_loss_adv = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
                 g_loss_l1 = self.L1_loss(fake_B, real_B) * self.config['L1_lambda']
                 
                 g_loss = g_loss_adv + g_loss_l1
@@ -192,14 +192,14 @@ class GAN3DSolver(object):
                 
                 pred_fake = self.netD(fake_B)
                 
-                g_loss_adv = -torch.mean(pred_fake) * self.config['Adv_lambda']
+                g_loss_adv = self.MSE_loss(pred_fake, self.target_real) * self.config['Adv_lambda']
                 g_loss_l1 = self.L1_loss(fake_B, real_B) * self.config['L1_lambda']
                 
                 g_loss = g_loss_adv + g_loss_l1
                 
-                losses['g_loss_adv'].append(g_loss_adv.item())
-                losses['g_loss_l1'].append(g_loss_l1.item())
-                losses['g_loss'].append(g_loss.item())
+                losses['g_loss_adv'].append(g_loss_adv)
+                losses['g_loss_l1'].append(g_loss_l1)
+                losses['g_loss'].append(g_loss)
                 
                 metrics['ssim'].append(self.ssim(fake_B, real_B))
                 metrics['psnr'].append(self.psnr(fake_B, real_B))
