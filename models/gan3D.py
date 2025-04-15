@@ -116,5 +116,48 @@ class Discriminator(nn.Module):
         # Average pooling and flatten
         return F.avg_pool3d(x, x.size()[2:]).view(x.size()[0], -1)
 
+# ==== 2.2 对应16切片的判别器 ====
+class NewDiscriminator(nn.Module):
+    def __init__(self, input_nc):
+        super(NewDiscriminator, self).__init__()
 
+        self.conv1 = nn.Sequential(
+            nn.Conv3d(input_nc, 64, 4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        self.conv2 = nn.Sequential(
+            nn.Conv3d(64, 128, 4, stride=2, padding=1),
+            nn.InstanceNorm3d(128),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        # 根据输入深度决定是否使用第三层之后的卷积
+        self.conv3 = nn.Sequential(
+            nn.Conv3d(128, 256, 4, stride=2, padding=1),
+            nn.InstanceNorm3d(256),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        self.conv4 = nn.Sequential(
+            nn.Conv3d(256, 512, 4, padding=1),
+            nn.InstanceNorm3d(512),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        
+        self.conv5 = nn.Conv3d(512, 1, 4, padding=1)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        
+        # 只在深度维度足够大时应用第三层及之后的卷积
+        if x.size(2) >= 4:
+            x = self.conv3(x)
+        if x.size(2) >= 4:
+            x = self.conv4(x)
+        if x.size(2) >= 4:  
+            x = self.conv5(x)
+        
+        return F.adaptive_avg_pool3d(x, (1,1,1)).view(x.size()[0], -1)
 
