@@ -1,5 +1,5 @@
 # config.yaml
-name: 'CycleGAN3D' # 模型名称
+name: 'NewNewCycleGAN3D' # 模型名称
 # device: 'cuda' # 使用的设备
 
 model: '' # 暂时无用，留在这里

@@ -28,6 +28,9 @@ from utils import *
 class CycleGAN3DSolver(object):
     def __init__(self, config):
         super().__init__()
+        # 0. 调试
+        self.debug_mode = False
+        
         # 1.保留参数
         self.global_config = config
         self.config = config['solver']
@@ -88,9 +91,9 @@ class CycleGAN3DSolver(object):
         self.target_fake = Variable(Tensor(1,1).fill_(0.0), requires_grad=False).to(self.device)
         
         # 6.数据加载
-        self.train_loader = DataLoader(NewImagesDataset3D(config['dataset'], train=True))
+        self.train_loader = DataLoader(CycleGANDataset3D(config['dataset'], train=True))
         print(f'\033[1;34m[info]\033[0m train_loader已加载 \033[32m{len(self.train_loader)}\033[0m 个batch')
-        self.val_loader = DataLoader(NewImagesDataset3D(config['dataset'], train=False))
+        self.val_loader = DataLoader(CycleGANDataset3D(config['dataset'], train=False))
         print(f'\033[1;34m[info]\033[0m val_loader已加载 \033[32m{len(self.val_loader)}\033[0m 个batch')
         
     def _allocate_memory(self):
@@ -106,16 +109,22 @@ class CycleGAN3DSolver(object):
         
         self.epoch_bar = tqdm(range(self.config['start_epoch']+1, self.config['n_epochs']+1), desc='Training Progress', unit='epoch', position=0)
         
+        if self.debug_mode: # ✨️ DEBUG ✨️
+            pass
+            # 训练开始,删除./debug/DEBUG.txt
+            if os.path.exists('./debug/DEBUG.txt'):  
+                os.remove('./debug/DEBUG.txt')  
+                
+                
+        
         for self.epoch in range(self.config['start_epoch']+1, self.config['n_epochs']+1):
             self.batch_bar = tqdm(total=len(self.train_loader), desc='Batch Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(self.train_loader):
-                # ===== 读入数据 =====
-                real_A = batch_data['CT'].to(self.device)
-                real_B = batch_data['MR'].to(self.device)
-                if self.epoch == 0 and batch_idx == 0: # DEBUG
-                    tqdm.write(f'real_A: {real_A.min()} ~ {real_A.max()}')
-                    tqdm.write(f'real_B: {real_B.min()} ~ {real_B.max()}')
-
+                # print(f'\033[1;33m[debug]\033[0m batch_idx: {batch_idx}, real_A.shape: {batch_data["CT"].shape}, real_B.shape: {batch_data["MR"].shape}')
+                real_A_255 = batch_data['CT'].to(self.device) # real_A_255
+                real_A_2 = batch_data['CT_2'].to(self.device)
+                real_B_2 = batch_data['MR'].to(self.device) # real_B_2
+                real_B_255 = batch_data['MR_255'].to(self.device)
                 # ===== Generator training =====
                 self.netG_A2B.train()
                 self.netG_B2A.train()
@@ -123,28 +132,46 @@ class CycleGAN3DSolver(object):
                 self.netD_B.eval()
                 self.optimizer_G.zero_grad()
                 # GAN loss
-                fake_B = self.netG_A2B(real_A)
-                if self.epoch == 0 and batch_idx == 0: # DEBUG
-                    tqdm.write(f'fake_B: {fake_B.min()} ~ {fake_B.max()}')
-                pred_fake = self.netD_B(fake_B)
+                fake_B_2 = self.netG_A2B(real_A_255)
+                pred_fake = self.netD_B(fake_B_2)
                 loss_GAN_A2B = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_real)
-
-                fake_A = self.netG_B2A(real_B)
-                if self.epoch == 0 and batch_idx == 0: # DEBUG
-                    tqdm.write(f'fake_A: {fake_A.min()} ~ {fake_A.max()}')
-                pred_fake = self.netD_A(fake_A)
+                if self.debug_mode: # ✨️ DEBUG ✨️
+                    with open('./debug/DEBUG.txt', 'a') as f:
+                        f.write(f'===== {self.epoch} =====\n')
+                        f.write(f'===== {batch_idx} =====\n')
+                        f.write(f'[netG_A2B]\n')
+                        f.write(f'real_A_255: ({real_A_255.min()}~{real_A_255.max()})\n')
+                        f.write(f'fake_B_2: ({fake_B_2.min()}~{fake_B_2.max()})\n')
+                        
+                fake_A_2 = self.netG_B2A(real_B_255)
+                pred_fake = self.netD_A(fake_A_2)
                 loss_GAN_B2A = self.config['Adv_lambda']*self.MSE_loss(pred_fake, self.target_real)
+                if self.debug_mode: # ✨️ DEBUG ✨️
+                    with open('./debug/DEBUG.txt', 'a') as f:
+                        f.write(f'[netG_B2A]\n')
+                        f.write(f'real_B_255: ({real_B_255.min()}~{real_B_255.max()})\n')
+                        f.write(f'fake_A_2: ({fake_A_2.min()}~{fake_A_2.max()})\n')
+                        
+                # Cycle recovered loss
+                fake_B_255 = (fake_B_2+1) * 127.5
+                recovered_A = self.netG_B2A(fake_B_255)
+                loss_cycle_ABA = self.config['Cyc_lambda'] * self.L1_loss(recovered_A, real_A_2)
+                if self.debug_mode: # ✨️ DEBUG ✨️
+                    with open('./debug/DEBUG.txt', 'a') as f:
+                        f.write(f'[recovered_A]\n')
+                        f.write(f'fake_B_255: ({fake_B_255.min()}~{fake_B_255.max()})\n')
+                        f.write(f'recovered_A: ({recovered_A.min()}~{recovered_A.max()})\n')
+                        f.write(f'loss_cycle_ABA: {loss_cycle_ABA}\n')
 
-                # Cycle loss
-                recovered_A = self.netG_B2A(fake_B)
-                if self.epoch == 0 and batch_idx == 0: # DEBUG
-                    tqdm.write(f'recovered_A: {recovered_A.min()} ~ {recovered_A.max()}')
-                loss_cycle_ABA = self.config['Cyc_lambda'] * self.L1_loss(recovered_A, real_A)
-
-                recovered_B = self.netG_A2B(fake_A)
-                if self.epoch == 0 and batch_idx == 0: # DEBUG
-                    tqdm.write(f'recovered_B: {recovered_B.min()} ~ {recovered_B.max()}')
-                loss_cycle_BAB = self.config['Cyc_lambda'] * self.L1_loss(recovered_B, real_B)
+                fake_A_255 = (fake_A_2+1) * 127.5
+                recovered_B = self.netG_A2B(fake_A_255)
+                loss_cycle_BAB = self.config['Cyc_lambda'] * self.L1_loss(recovered_B, real_B_2)
+                if self.debug_mode: # ✨️ DEBUG ✨️
+                    with open('./debug/DEBUG.txt', 'a') as f:
+                        f.write(f'[recovered_B]\n')
+                        f.write(f'fake_A_255: ({fake_A_255.min()}~{fake_A_255.max()})\n')
+                        f.write(f'recovered_B: ({recovered_B.min()}~{recovered_B.max()})\n')
+                        f.write(f'loss_cycle_BAB: {loss_cycle_BAB}\n\n\n')
 
                 # Total loss
                 loss_Total = loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
@@ -155,11 +182,11 @@ class CycleGAN3DSolver(object):
                 self.netD_A.train()
                 self.optimizer_D_A.zero_grad()
                 # Real loss
-                pred_real = self.netD_A(real_A)
+                pred_real = self.netD_A(real_A_2)
                 loss_D_real = self.config['Adv_lambda'] * self.MSE_loss(pred_real, self.target_real)
                 # Fake loss
                 # fake_A = self.fake_A_buffer.push_and_pop(fake_A)
-                pred_fake = self.netD_A(fake_A.detach())
+                pred_fake = self.netD_A(fake_A_2.detach())
                 loss_D_fake = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_fake)
 
                 # Total loss
@@ -174,12 +201,12 @@ class CycleGAN3DSolver(object):
                 self.optimizer_D_B.zero_grad()
 
                 # Real loss
-                pred_real = self.netD_B(real_B)
+                pred_real = self.netD_B(real_B_2)
                 loss_D_real = self.config['Adv_lambda'] * self.MSE_loss(pred_real, self.target_real)
 
                 # Fake loss
                 # fake_B = self.fake_B_buffer.push_and_pop(fake_B)
-                pred_fake = self.netD_B(fake_B.detach())
+                pred_fake = self.netD_B(fake_B_2.detach())
                 loss_D_fake = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_fake)
 
                 # Total loss
@@ -188,28 +215,28 @@ class CycleGAN3DSolver(object):
 
                 self.optimizer_D_B.step()
                     ###################################
+                # fake_A_2,fake_B_2,real_A_2,real_B_2的最大最小值
+                # tqdm.write(f'\033[1;34m[info]\033[0m batch_idx: {batch_idx}, fake_A_2: {fake_A_2.min()}~{fake_A_2.max()}, fake_B_2: {fake_B_2.min()}~{fake_B_2.max()}, real_A_2: {real_A_2.min()}~{real_A_2.max()}, real_B_2: {real_B_2.min()}~{real_B_2.max()}')
                 self.batch_bar.set_postfix(
-                    # loss_G_A2B=loss_GAN_A2B.item(),
-                    # loss_G_B2A=loss_GAN_B2A.item(),
-                    # loss_cycle_ABA=loss_cycle_ABA.item(),
-                    # loss_cycle_BAB=loss_cycle_BAB.item(),
                     loss_G=loss_Total.item(),
                     loss_D_A=loss_D_A.item(),
                     loss_D_B=loss_D_B.item(),
-                    ssim_B=self.ssim(fake_B, real_B).item(),
-                    psnr_B=self.psnr(fake_B, real_B).item(),
-                    ssim_A=self.ssim(fake_A, real_A).item(),
-                    psnr_A=self.psnr(fake_A, real_A).item(),
+                    ssimB=self.ssim(fake_B_2, real_B_2).item(),
+                    psnrB=self.psnr(fake_B_2, real_B_2).item(),
+                    # ssimA=self.ssim(fake_A_2, real_A_2).item(),
+                    # psnrA=self.psnr(fake_A_2, real_A_2).item(),
                 )
                 self.batch_bar.update(1)
             self.batch_bar.close()
                 
             self.epoch_bar.update(1)
+            
+            
             # TODO 评估 未完善
             if self.epoch % self.misc['eval_interval'] == 1: # 期望第1次就输出评估结果
                 tqdm.write(f'\033[1;34m[info]\033[0m Evaluating...')
                 
-                train_metrics = self._evaluate(self.val_loader, sample_idx=10)
+                train_metrics = self._evaluate(self.val_loader)
                 tqdm.write(f'\033[1;34m[info]\033[0m epoch: {self.epoch}, train_metrics: {train_metrics}')
                 # 保存最好的模型
                 if train_metrics['metrics']['ssim'] > best_SSIM:
@@ -221,14 +248,7 @@ class CycleGAN3DSolver(object):
                 
         self.epoch_bar.close()
         
-    def _evaluate(self, dataloader=None, sample_idx=0):
-        # dataloader优先级 传入dataloader>self.val_loader>self.train_loader
-        if dataloader is None:
-            dataloader = self.val_loader if self.val_loader is not None else self.train_loader
-        
-        if sample_idx < 0:
-            sample_idx = len(dataloader) + sample_idx
-            
+    def _evaluate(self, dataloader):
         self.netG_A2B.eval()
         self.netG_B2A.eval()
         self.netD_A.eval()
@@ -240,45 +260,39 @@ class CycleGAN3DSolver(object):
         with torch.no_grad():
             self.eval_bar = tqdm(total=len(dataloader), desc='Eval Progress', unit='batch', position=1, leave=False)
             for batch_idx, batch_data in enumerate(dataloader):
-                
-                
-                real_A = batch_data['CT'].to(self.device)
-                real_B = batch_data['MR'].to(self.device)
-                # if batch_idx == sample_idx:
-                #     tqdm.write(f"batch_data['CT']: {batch_data['CT'].min()} ~ {batch_data['CT'].max()}")
-                #     tqdm.write(f"batch_data['MR']: {batch_data['MR'].min()} ~ {batch_data['MR'].max()}")
-                
+                real_A_255 = batch_data['CT'].to(self.device) # real_A_255
+                real_A_2 = batch_data['CT_2'].to(self.device)
+                real_B_2 = batch_data['MR'].to(self.device) # real_B_2
+                real_B_255 = batch_data['MR_255'].to(self.device)
                 # ===== Generator training =====
-                
-                
-                self.optimizer_G.zero_grad()
                 # GAN loss
-                fake_B = self.netG_A2B(real_A)
-                pred_fake = self.netD_B(fake_B)
+                fake_B_2 = self.netG_A2B(real_A_255)
+                pred_fake = self.netD_B(fake_B_2)
                 loss_GAN_A2B = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_real)
 
-                fake_A = self.netG_B2A(real_B)
-                pred_fake = self.netD_A(fake_A)
+                fake_A_2 = self.netG_B2A(real_B_255)
+                pred_fake = self.netD_A(fake_A_2)
                 loss_GAN_B2A = self.config['Adv_lambda']*self.MSE_loss(pred_fake, self.target_real)
 
                 # Cycle loss
-                recovered_A = self.netG_B2A(fake_B)
-                loss_cycle_ABA = self.config['Cyc_lambda'] * self.L1_loss(recovered_A, real_A)
+                fake_B_255 = (fake_B_2+1) * 127.5
+                recovered_A = self.netG_B2A(fake_B_255)
+                loss_cycle_ABA = self.config['Cyc_lambda'] * self.L1_loss(recovered_A, real_A_2)
 
-                recovered_B = self.netG_A2B(fake_A)
-                loss_cycle_BAB = self.config['Cyc_lambda'] * self.L1_loss(recovered_B, real_B)
+                fake_A_255 = (fake_A_2+1) * 127.5
+                recovered_B = self.netG_A2B(fake_A_255)
+                loss_cycle_BAB = self.config['Cyc_lambda'] * self.L1_loss(recovered_B, real_B_2)
 
                 # Total loss
                 loss_Total = loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
 
                 ###### NewDiscriminator A ######
-                self.optimizer_D_A.zero_grad()
                 # Real loss
-                pred_real = self.netD_A(real_A)
+                pred_real = self.netD_A(real_A_2)
                 loss_D_real = self.config['Adv_lambda'] * self.MSE_loss(pred_real, self.target_real)
                 # Fake loss
                 # fake_A = self.fake_A_buffer.push_and_pop(fake_A)
-                pred_fake = self.netD_A(fake_A.detach())
+                pred_fake = self.netD_A(fake_A_2.detach())
                 loss_D_fake = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_fake)
 
                 # Total loss
@@ -287,19 +301,19 @@ class CycleGAN3DSolver(object):
                 ###################################
 
                 ###### NewDiscriminator B ######
-                self.optimizer_D_B.zero_grad()
 
                 # Real loss
-                pred_real = self.netD_B(real_B)
+                pred_real = self.netD_B(real_B_2)
                 loss_D_real = self.config['Adv_lambda'] * self.MSE_loss(pred_real, self.target_real)
 
                 # Fake loss
                 # fake_B = self.fake_B_buffer.push_and_pop(fake_B)
-                pred_fake = self.netD_B(fake_B.detach())
+                pred_fake = self.netD_B(fake_B_2.detach())
                 loss_D_fake = self.config['Adv_lambda'] * self.MSE_loss(pred_fake, self.target_fake)
 
                 # Total loss
                 loss_D_B = (loss_D_real + loss_D_fake)
+
 
                 losses['loss_G_A2B'].append(loss_GAN_A2B)
                 losses['loss_G_B2A'].append(loss_GAN_B2A)
@@ -310,39 +324,26 @@ class CycleGAN3DSolver(object):
                 losses['loss_D_A'].append(loss_D_A)
                 losses['loss_D_B'].append(loss_D_B)
                 
-                metrics['ssim_B'].append(self.ssim(fake_B, real_B))
-                metrics['psnr_B'].append(self.psnr(fake_B, real_B))
-                
-                metrics['ssim'].append(metrics['ssim_B'][-1]) # 直接用fake_B的ssim
-                
-                metrics['ssim_A'].append(self.ssim(fake_A, real_A))
-                metrics['psnr_A'].append(self.psnr(fake_A, real_A))
+                metrics['ssim'].append(self.ssim(fake_B_2, real_B_2))
+                metrics['psnr'].append(self.psnr(fake_B_2, real_B_2))
                 self.eval_bar.update(1)
-                # ===== sample保存 ===== 
-                if batch_idx == sample_idx:
-                    # 保存最后一个的real_A, real_B, fake_B
-                    sample_dir = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['sample']
-                    os.makedirs(sample_dir, exist_ok=True)
-                    # 数据是(B,1,32,256,256)的
-                    real_A = real_A[0, 0].cpu().numpy()
-                    real_B = real_B[0, 0].cpu().numpy()
-                    fake_A = fake_A[0, 0].cpu().numpy()
-                    fake_B = fake_B[0, 0].cpu().numpy()
-                    
-                    # tqdm.write(f'real_A: {real_A.min()} ~ {real_A.max()}')
-                    # tqdm.write(f'real_B: {real_B.min()} ~ {real_B.max()}')
-                    # tqdm.write(f'fake_A: {fake_A.min()} ~ {fake_A.max()}')
-                    # tqdm.write(f'fake_B: {fake_B.min()} ~ {fake_B.max()}')
-                    
-                    # 保存为npy
-                    np.save(sample_dir / f'real_A_{self.epoch}_{batch_idx}.npy', real_A)
-                    np.save(sample_dir / f'real_B_{self.epoch}_{batch_idx}.npy', real_B)
-                    np.save(sample_dir / f'fake_A_{self.epoch}_{batch_idx}.npy', fake_A)
-                    np.save(sample_dir / f'fake_B_{self.epoch}_{batch_idx}.npy', fake_B)
             self.eval_bar.close()
             
+            # ===== sample ===== 
+            # 保存最后一个的输出
+            sample_dir = Path(self.misc['log_root']) / self.global_config['name'] / self.misc['log_dir_names']['sample']
+            os.makedirs(sample_dir, exist_ok=True)
+            # 数据是(B,1,32,256,256)的
+            real_A = real_A_255[0, 0].cpu().numpy()
+            real_B = real_B_2[0, 0].cpu().numpy()
+            fake_A = fake_A_255[0, 0].cpu().numpy()
+            fake_B = fake_B_2[0, 0].cpu().numpy()
             
-
+            # 保存为npy
+            np.save(sample_dir / f'real_A_{self.epoch}_{batch_idx}.npy', real_A)
+            np.save(sample_dir / f'real_B_{self.epoch}_{batch_idx}.npy', real_B)
+            np.save(sample_dir / f'fake_A_{self.epoch}_{batch_idx}.npy', fake_A)
+            np.save(sample_dir / f'fake_B_{self.epoch}_{batch_idx}.npy', fake_B)
             
         # 对字典中的所有元素取平均
         losses = {key: torch.mean(torch.stack(value)).item() for key, value in losses.items()}
@@ -407,7 +408,5 @@ if __name__ == '__main__':
     solver = CycleGAN3DSolver(config)
     solver.train()
     
-    # id3d = ImagesDataset3D(config['dataset'], train=False)
-    # for idx, data in enumerate(id3d):
-    #     print(f"{idx}:\t CT: {data['CT'].min()} ~ {data['CT'].max()}")
-    #     print(f"\t MR: {data['MR'].min()} ~ {data['MR'].max()}")
+    # id3d = ImagesDataset3D(config['dataset'], train=True)
+    # print(id3d[0]['CT'].shape)

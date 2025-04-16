@@ -146,18 +146,33 @@ class NewDiscriminator(nn.Module):
         )
         
         self.conv5 = nn.Conv3d(512, 1, 4, padding=1)
+        
+        self.conv3_2 = nn.Conv3d(256, 1, 2, padding=1) # 
+        self.conv4_2 = nn.Conv3d(512, 1, 2, padding=1)
 
+        self.layer_idx = 0
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
         
         # 只在深度维度足够大时应用第三层及之后的卷积
         if x.size(2) >= 4:
+            self.layer_idx = 3
             x = self.conv3(x)
+            
         if x.size(2) >= 4:
+            self.layer_idx = 4
             x = self.conv4(x)
-        if x.size(2) >= 4:  
+            
+        if x.size(2) >= 4:
+            self.layer_idx = 5
             x = self.conv5(x)
         
-        return F.adaptive_avg_pool3d(x, (1,1,1)).view(x.size()[0], -1)
+        if self.layer_idx == 3:
+            x = self.conv3_2(x)
+        elif self.layer_idx == 4:
+            x = self.conv4_2(x)
+        
+        # return F.adaptive_avg_pool3d(x, (1,1,1)).view(x.size()[0], -1)
+        return F.avg_pool3d(x, x.size()[2:]).view(x.size()[0], -1)
 

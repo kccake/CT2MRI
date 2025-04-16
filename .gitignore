@@ -4,4 +4,6 @@ __pycache__/
 test/
 test.*
 
+debug/
+
 main_checkmodel.py
