@@ -186,7 +186,7 @@ class RegGAN3DSolver(object):
                 real_A = batch_data['CT'].to(self.device)
                 real_B = batch_data['MR'].to(self.device)
                 
-                self.optimizer_R.zero_grad()
+                # self.optimizer_R.zero_grad()
                 
                 fake_B = self.netG(real_A)
                 Trans = self.netR(fake_B, real_B)
